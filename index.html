@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Chicago Crime Dashboard</title>
+  
+  <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css' />
+  <script src='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js'></script>
+  
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="dashboard-layout">
+    <div class="left-panel">
+      <div id="map"></div>
+      
+      <div id="bottom-panel">
+        
+        <div class="filter-group horizontal-slider">
+          <div id="year-chart" class="chart-canvas"></div>
+          <label>YEAR <span id="year-label" class="highlight-text">2001 - 2026</span></label>
+          <div class="dual-slider-container">
+            <div class="slider-track"></div>
+            <div class="slider-fill" id="year-fill"></div>
+            <div class="slider-ticks" id="year-ticks"></div>
+            <input type="range" id="year-min" min="2001" max="2026" value="2001" step="1">
+            <input type="range" id="year-max" min="2001" max="2026" value="2026" step="1">
+          </div>
+        </div>
+
+        <div class="filter-group horizontal-slider">
+          <div id="month-chart" class="chart-canvas"></div>
+          <label>MONTH <span id="month-label" class="highlight-text">JAN - DEC</span></label>
+          <div class="dual-slider-container">
+            <div class="slider-track"></div>
+            <div class="slider-fill" id="month-fill"></div>
+            <div class="slider-ticks" id="month-ticks"></div>
+            <input type="range" id="month-min" min="1" max="12" value="1" step="1">
+            <input type="range" id="month-max" min="1" max="12" value="12" step="1">
+          </div>
+        </div>
+
+        <div class="filter-group horizontal-slider">
+          <div id="hour-chart" class="chart-canvas"></div>
+          <label>HOUR <span id="hour-label" class="highlight-text">0:00 - 24:00</span></label>
+          <div class="dual-slider-container">
+            <div class="slider-track"></div>
+            <div class="slider-fill" id="hour-fill"></div>
+            <div class="slider-ticks" id="hour-ticks"></div>
+            <input type="range" id="hour-min" min="0" max="24" value="0" step="1">
+            <input type="range" id="hour-max" min="0" max="24" value="24" step="1">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="panel-title">Crime Types & Filters</div>
+      <div class="checkbox-list">
+        <label class="merged-legend-item" style="border-bottom: 2px solid #ddd; margin-bottom: 8px; font-weight: bold;">
+          <input type="checkbox" id="select-all-checkbox" checked> Select All
+        </label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="THEFT" checked><div class="legend-color" style="background: #1f77b4;"></div> Theft</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BATTERY" checked><div class="legend-color" style="background: #ff7f0e;"></div> Battery</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="CRIMINAL DAMAGE" checked><div class="legend-color" style="background: #ffbb78;"></div> Criminal Damage</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="NARCOTICS" checked><div class="legend-color" style="background: #2ca02c;"></div> Narcotics</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ASSAULT" checked><div class="legend-color" style="background: #d62728;"></div> Assault</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BURGLARY" checked><div class="legend-color" style="background: #9467bd;"></div> Burglary</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ROBBERY" checked><div class="legend-color" style="background: #8c564b;"></div> Robbery</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="MOTOR VEHICLE THEFT" checked><div class="legend-color" style="background: #e377c2;"></div> Motor Vehicle Theft</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="HOMICIDE" checked><div class="legend-color" style="background: #000000;"></div> Homicide</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="OTHER" checked><div class="legend-color" style="background: #7f7f7f;"></div> Other</label>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
