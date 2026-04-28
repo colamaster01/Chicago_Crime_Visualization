@@ -245,13 +245,14 @@ body {
 
 /* 柱子的基础样式（未在滑块选中范围内时的颜色） */
 .chart-bar {
-    fill: #3ca0eb; /* 【未激活颜色】同样是蓝色 */
-    opacity: 0.25; /* 【未激活透明度】调低亮度，形成明暗对比 */
-    transition: height 0.3s ease, y 0.3s ease, opacity 0.3s ease; 
+    /* 【修改点】：SVG 用 fill，普通的 DIV 要用 background-color */
+    background-color: #3ca0eb; 
+    opacity: 0.25; 
+    transition: height 0.3s ease, opacity 0.3s ease, background-color 0.3s ease; 
 }
 
 /* 被滑块圈中时的柱子样式（高亮） */
 .chart-bar.active {
-    fill: #3ca0eb; /* 【激活颜色】科技蓝 */
-    opacity: 1.0;  /* 【激活透明度】100% 不透明 */
+    background-color: #3ca0eb; 
+    opacity: 1.0;  
 }

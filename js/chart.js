@@ -1,47 +1,55 @@
 export const ChartRenderer = {
     
-    // 画画的逻辑完全不用变
+    // 纯原生 JS 绘制柱状图，脱离 D3 依赖！
     drawSparkline(containerId, dataMap, minKey, maxKey, currentRange) {
-        const container = d3.select(`#${containerId}`);
-        container.selectAll("*").remove(); 
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-        const node = container.node();
-        if (!node) return;
+        // 1. 清空旧画布
+        container.innerHTML = '';
 
-        const width = node.clientWidth;
-        const height = 40; 
+        // 2. 补全数据并找到最大值 (代替 d3.max 和 d3.scaleLinear)
+        const data = [];
+        let maxVal = 1;
+        for (let k = minKey; k <= maxKey; k++) {
+            const val = dataMap.get(k) || 0;
+            data.push({ key: k, value: val });
+            if (val > maxVal) maxVal = val;
+        }
 
-        const svg = container.append('svg')
-            .attr('width', '100%')
-            .attr('height', '100%');
+        // 3. 用纯 DOM 创建 Flexbox 容器
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'flex-end'; // 让柱子从底部对齐
+        wrapper.style.height = '100%';
+        wrapper.style.width = '100%';
+        wrapper.style.gap = '2px'; // 代替 D3 的 padding(0.05)，控制柱子间隙
 
-        const domain = d3.range(minKey, maxKey + 1);
-        // 【关键】：这里直接读取 API 传过来的 Map 字典里的数值
-        const data = domain.map(k => ({ key: k, value: dataMap.get(k) || 0 }));
+        // 4. 循环生成每一根柱子
+        data.forEach(d => {
+            const bar = document.createElement('div');
+            
+            // 计算高度百分比
+            const heightPct = (d.value / maxVal) * 100;
+            const isActive = d.key >= currentRange[0] && d.key <= currentRange[1];
+            
+            // 赋予原来的 CSS 类名
+            bar.className = isActive ? 'chart-bar active' : 'chart-bar';
+            
+            // 写入内联动态样式
+            bar.style.height = `${heightPct}%`;
+            bar.style.flex = '1'; // 均分宽度
+            bar.style.borderTopLeftRadius = '2px';
+            bar.style.borderTopRightRadius = '2px';
 
-        const x = d3.scaleBand().domain(domain).range([0, width]).padding(0.2); 
-        const maxVal = d3.max(data, d => d.value) || 1; 
-        const y = d3.scaleLinear().domain([0, maxVal]).range([height, 0]); 
+            wrapper.appendChild(bar);
+        });
 
-        svg.selectAll('.chart-bar')
-           .data(data)
-           .enter().append('rect')
-           .attr('class', d => {
-               const isActive = d.key >= currentRange[0] && d.key <= currentRange[1];
-               return isActive ? 'chart-bar active' : 'chart-bar';
-           })
-           .attr('x', d => x(d.key))
-           .attr('y', d => y(d.value))
-           .attr('width', x.bandwidth())
-           .attr('height', d => height - y(d.value))
-           .attr('rx', 2); 
+        container.appendChild(wrapper);
     },
 
-    // 【修改点】：直接接收 API 的 histData 字典，不再接收 microData
     updateAllHistograms(histData, currentFilters) {
         if (!histData) return;
-
-        // 直接分配给对应的画布去画图
         this.drawSparkline('year-chart', histData.year, 2001, 2026, currentFilters.year);
         this.drawSparkline('month-chart', histData.month, 1, 12, currentFilters.month);
         this.drawSparkline('hour-chart', histData.hour, 0, 24, currentFilters.hour);
