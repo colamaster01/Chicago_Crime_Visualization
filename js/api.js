@@ -1,189 +1,176 @@
-const BASE_URL = "https://data.cityofchicago.org/resource/ijzp-q8t2.json";
-
-// 【新增】：定义我们明确列出的 9 大主要犯罪类型
-const TOP_CRIMES = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
-
-// 【新增】：一个专门用来生成完美 SQL 类型条件的辅助函数
-function buildCrimeTypeCondition(crimeTypes) {
-    if (!crimeTypes || crimeTypes.length === 0) return null;
-    
-    const hasOther = crimeTypes.includes('OTHER');
-    const selectedTops = crimeTypes.filter(t => t !== 'OTHER');
-
-    if (hasOther) {
-        // 如果勾选了 OTHER，我们要采取“反向排除法”
-        // 找出那些【没有被勾选】的主要类型，然后 NOT IN
-        const unselectedTops = TOP_CRIMES.filter(t => !selectedTops.includes(t));
-        
-        if (unselectedTops.length > 0) {
-            const typeString = unselectedTops.map(t => `'${t}'`).join(',');
-            return `primary_type NOT IN (${typeString})`;
-        }
-        // 如果所有主要类型都勾选了，且 OTHER 也勾选了，不需要加任何条件（也就是拉取全库）
-        return null; 
-    } else {
-        // 如果没勾选 OTHER，就按正向查找
-        if (selectedTops.length > 0) {
-            const typeString = selectedTops.map(t => `'${t}'`).join(',');
-            return `primary_type IN (${typeString})`;
-        }
-        return "1=0"; // 兜底防止意外
-    }
-}
-
 export const API = {
-    buildWhereClause(filters, bounds) {
-        let conditions = [];
-        
-        if (filters.year && filters.year.length === 2) {
-            conditions.push(`year >= ${filters.year[0]} AND year <= ${filters.year[1]}`);
+    allData: [],      // 存放所有案件的内存数组
+    mappings: {},     // 存放 ID 到文本的翻译字典
+    isLoaded: false,
+
+    // ==========================================
+    // 1. 初始化：吃透你的 CSV 和 JSON
+    // ==========================================
+    async init() {
+        console.log("⏳ 正在将 7 年犯罪数据载入内存...");
+        try {
+            const jsonRes = await fetch('crime_mapping.json');
+            this.mappings = await jsonRes.json();
+
+            const csvRes = await fetch('chicago_crimes_7years_compressed.csv');
+            const csvText = await csvRes.text();
+            
+            const lines = csvText.split('\n');
+            // 根据你的 Python 脚本输出，列的顺序是: lat, lng, y, m, d, h, ca, t, desc
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const p = lines[i].split(',');
+                this.allData.push({
+                    lat: parseFloat(p[0]), lng: parseFloat(p[1]),
+                    y: parseInt(p[2]), m: parseInt(p[3]), d: parseInt(p[4]), h: parseInt(p[5]),
+                    ca: parseInt(p[6]), // 社区编号 Community Area
+                    t: parseInt(p[7]),  // 类型 ID
+                    desc: parseInt(p[8]) // 描述 ID
+                });
+            }
+            this.isLoaded = true;
+            console.log(`✅ 成功载入 ${this.allData.length} 条案件数据！`);
+        } catch (e) {
+            console.error("❌ 数据加载失败，请检查文件是否存在", e);
         }
-        if (filters.month && filters.month.length === 2) {
-            conditions.push(`date_extract_m(date) >= ${filters.month[0]} AND date_extract_m(date) <= ${filters.month[1]}`);
-        }
-        if (filters.hour && filters.hour.length === 2) {
-            conditions.push(`date_extract_hh(date) >= ${filters.hour[0]} AND date_extract_hh(date) <= ${filters.hour[1]}`);
-        }
-        
-        // 【修改点】：调用我们写的智能类型判断函数
-        if (filters.crimeTypes) {
-            const typeCond = buildCrimeTypeCondition(filters.crimeTypes);
-            if (typeCond) conditions.push(typeCond);
-        }
-        
-        if (bounds) {
-            const latDiff = bounds.getNorth() - bounds.getSouth();
-            const lngDiff = bounds.getEast() - bounds.getWest();
-            const north = bounds.getNorth() + (latDiff * 0.5);
-            const south = bounds.getSouth() - (latDiff * 0.5);
-            const east = bounds.getEast() + (lngDiff * 0.5);
-            const west = bounds.getWest() - (lngDiff * 0.5);
-            conditions.push(`within_box(location, ${north}, ${west}, ${south}, ${east})`);
-        }
-        return conditions.join(' AND ');
     },
 
+    // ==========================================
+    // 2. 辅助函数：将勾选的字符串转为 ID 集合
+    // ==========================================
+    getAllowedTypeIds(crimeTypesStrArray) {
+        const allowed = new Set();
+        if (!crimeTypesStrArray || crimeTypesStrArray.length === 0) return allowed;
+
+        const hasOther = crimeTypesStrArray.includes('OTHER');
+        const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
+        
+        for (const [idStr, name] of Object.entries(this.mappings.types)) {
+            const id = parseInt(idStr);
+            if (crimeTypesStrArray.includes(name)) allowed.add(id);
+            else if (hasOther && !explicitTypes.includes(name)) allowed.add(id);
+        }
+        return allowed;
+    },
+
+    matchTimeFilters(d, filters, excludeKey = null) {
+        if (excludeKey !== 'year' && filters.year && (d.y < filters.year[0] || d.y > filters.year[1])) return false;
+        if (excludeKey !== 'month' && filters.month && (d.m < filters.month[0] || d.m > filters.month[1])) return false;
+        if (excludeKey !== 'hour' && filters.hour && (d.h < filters.hour[0] || d.h > filters.hour[1])) return false;
+        return true;
+    },
+
+    // ==========================================
+    // 3. 散点数据 (微观图层)
+    // ==========================================
     async fetchCrimes(filters, bounds) {
-        if (!bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
-        const whereClause = this.buildWhereClause(filters, bounds);
-        const url = `${BASE_URL}?$where=${whereClause}&$order=date DESC&$limit=20000`;
-        try {
-            const res = await fetch(url);
-            const rawData = await res.json();
-            return {
-                type: "FeatureCollection",
-                features: rawData.map(crime => ({
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [parseFloat(crime.longitude || 0), parseFloat(crime.latitude || 0)] },
-                    properties: { id: crime.id, date: crime.date, type: crime.primary_type, description: crime.description }
-                }))
-            };
-        } catch (error) {
-            console.error("Fetching data error", error);
-            return { type: "FeatureCollection", features: [] };
-        }
-    },
+        if (!this.isLoaded || !bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
+        
+        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        const features = [];
+        const [south, north, west, east] = [bounds.getSouth(), bounds.getNorth(), bounds.getWest(), bounds.getEast()];
 
-    async fetchMacroLayer(filters) {
-        try {
-            if (!window.cachedCommunityGeoJson) {
-                const geoRes = await fetch('https://data.cityofchicago.org/resource/igwz-8jzy.geojson');
-                window.cachedCommunityGeoJson = await geoRes.json();
-            }
-            
-            const geoJson = JSON.parse(JSON.stringify(window.cachedCommunityGeoJson));
+        for (let i = 0; i < this.allData.length; i++) {
+            const d = this.allData[i];
+            // 空间过滤 (如果在视野外直接跳过)
+            if (d.lat < south || d.lat > north || d.lng < west || d.lng > east) continue;
+            // 类型与时间过滤
+            if (!allowedTypes.has(d.t) || !this.matchTimeFilters(d, filters)) continue;
 
-            if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
-                geoJson.features.forEach(feature => feature.properties.crime_count = 0);
-                return { geoJson, thresholds: { p20: 1, p40: 2, p60: 3, p80: 4 }, isEmpty: true };
-            }
-
-            const whereClause = this.buildWhereClause(filters, null);
-            const url = `${BASE_URL}?$select=community_area,count(id)&$group=community_area&$where=${whereClause} AND community_area IS NOT NULL`;
-            
-            const statRes = await fetch(url);
-            const rawStats = await statRes.json();
-            
-            const stats = {};
-            rawStats.forEach(row => stats[row.community_area] = parseInt(row.count_id));
-
-            const counts = Object.values(stats).filter(c => c > 0).sort((a, b) => a - b);
-            
-            let p20 = counts[Math.floor(counts.length * 0.2)] || 1;
-            let p40 = counts[Math.floor(counts.length * 0.4)] || 2;
-            let p60 = counts[Math.floor(counts.length * 0.6)] || 3;
-            let p80 = counts[Math.floor(counts.length * 0.8)] || 4;
-
-            if (p40 <= p20) p40 = p20 + 1;
-            if (p60 <= p40) p60 = p40 + 1;
-            if (p80 <= p60) p80 = p60 + 1;
-
-            geoJson.features.forEach(feature => {
-                const areaId = feature.properties.area_num_1;
-                feature.properties.crime_count = stats[areaId] || 0;
-            });
-
-            return { geoJson, thresholds: { p20, p40, p60, p80 } };
-        } catch (err) {
-            console.error("宏观数据加载失败:", err);
-            return null;
-        }
-    },
-
-    async fetchHistograms(filters) {
-        if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
-            return { year: new Map(), month: new Map(), hour: new Map() };
-        }
-
-        const buildWhereExcluding = (excludeKey) => {
-            let conditions = [];
-            if (excludeKey !== 'year' && filters.year && filters.year.length === 2) {
-                conditions.push(`year >= ${filters.year[0]} AND year <= ${filters.year[1]}`);
-            }
-            if (excludeKey !== 'month' && filters.month && filters.month.length === 2) {
-                conditions.push(`date_extract_m(date) >= ${filters.month[0]} AND date_extract_m(date) <= ${filters.month[1]}`);
-            }
-            if (excludeKey !== 'hour' && filters.hour && filters.hour.length === 2) {
-                conditions.push(`date_extract_hh(date) >= ${filters.hour[0]} AND date_extract_hh(date) <= ${filters.hour[1]}`);
-            }
-            
-            // 【修改点】：调用智能类型判断函数
-            if (filters.crimeTypes) {
-                const typeCond = buildCrimeTypeCondition(filters.crimeTypes);
-                if (typeCond) conditions.push(typeCond);
-            }
-            
-            return conditions.length > 0 ? conditions.join(' AND ') : null;
-        };
-
-        const fetchGroup = async (extractFunc, excludeKey) => {
-            const whereClause = buildWhereExcluding(excludeKey);
-            let url = `${BASE_URL}?$select=${extractFunc} as key,count(id)&$group=${extractFunc}`;
-            if (whereClause) url += `&$where=${whereClause}`;
-            
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                const map = new Map();
-                if (Array.isArray(data)) {
-                    data.forEach(d => {
-                        if (d.key !== undefined && d.key !== null) {
-                            map.set(parseInt(d.key), parseInt(d.count_id));
-                        }
-                    });
+            features.push({
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [d.lng, d.lat] },
+                properties: { 
+                    type: this.mappings.types[d.t] || 'UNKNOWN',
+                    desc: this.mappings.descriptions[d.desc] || '',
+                    date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:00`
                 }
-                return map;
-            } catch (e) {
-                console.error(`Error fetching histogram for ${excludeKey}`, e);
-                return new Map();
-            }
-        };
+            });
+        }
+        return { type: "FeatureCollection", features };
+    },
 
-        const [yearMap, monthMap, hourMap] = await Promise.all([
-            fetchGroup('year', 'year'),
-            fetchGroup('date_extract_m(date)', 'month'),
-            fetchGroup('date_extract_hh(date)', 'hour')
-        ]);
+    // ==========================================
+    // 4. 热力块数据 (宏观图层)
+    // ==========================================
+    async fetchMacroLayer(filters) {
+        if (!this.isLoaded) return null;
+
+        // 获取社区边界 GeoJSON (只请求一次并缓存)
+        if (!window.cachedCommunityGeoJson) {
+            const geoRes = await fetch('https://data.cityofchicago.org/resource/igwz-8jzy.geojson');
+            window.cachedCommunityGeoJson = await geoRes.json();
+        }
+        const geoJson = JSON.parse(JSON.stringify(window.cachedCommunityGeoJson));
+
+        if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
+            geoJson.features.forEach(f => f.properties.crime_count = 0);
+            return { geoJson, thresholds: { p20: 1, p40: 2, p60: 3, p80: 4 }, isEmpty: true };
+        }
+
+        // 内存中按社区(ca)进行 Count
+        const caCounts = {};
+        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+
+        for (let i = 0; i < this.allData.length; i++) {
+            const d = this.allData[i];
+            if (d.ca !== 0 && allowedTypes.has(d.t) && this.matchTimeFilters(d, filters)) {
+                caCounts[d.ca] = (caCounts[d.ca] || 0) + 1;
+            }
+        }
+
+        // 注入 GeoJSON 并计算颜色阈值分位数
+        const countsArray = [];
+        geoJson.features.forEach(f => {
+            const areaId = parseInt(f.properties.area_num_1);
+            const count = caCounts[areaId] || 0;
+            f.properties.crime_count = count;
+            if (count > 0) countsArray.push(count);
+        });
+
+        countsArray.sort((a, b) => a - b);
+        let p20 = countsArray[Math.floor(countsArray.length * 0.2)] || 1;
+        let p40 = countsArray[Math.floor(countsArray.length * 0.4)] || 2;
+        let p60 = countsArray[Math.floor(countsArray.length * 0.6)] || 3;
+        let p80 = countsArray[Math.floor(countsArray.length * 0.8)] || 4;
+
+        // 保证分位数递增，防止地图渲染报错
+        if (p40 <= p20) p40 = p20 + 1;
+        if (p60 <= p40) p60 = p40 + 1;
+        if (p80 <= p60) p80 = p60 + 1;
+
+        return { geoJson, thresholds: { p20, p40, p60, p80 }, isEmpty: countsArray.length === 0 };
+    },
+
+    // ==========================================
+    // 5. 柱状图数据 (利用反向排除法计算直方图)
+    // ==========================================
+    async fetchHistograms(filters) {
+        const yearMap = new Map();
+        const monthMap = new Map();
+        const hourMap = new Map();
+
+        if (!this.isLoaded || !filters.crimeTypes || filters.crimeTypes.length === 0) {
+            return { year: yearMap, month: monthMap, hour: hourMap };
+        }
+
+        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+
+        // 扫一遍全量数据，各自跳过自己的维度进行计数
+        for (let i = 0; i < this.allData.length; i++) {
+            const d = this.allData[i];
+            if (!allowedTypes.has(d.t)) continue;
+
+            if (this.matchTimeFilters(d, filters, 'year')) {
+                yearMap.set(d.y, (yearMap.get(d.y) || 0) + 1);
+            }
+            if (this.matchTimeFilters(d, filters, 'month')) {
+                monthMap.set(d.m, (monthMap.get(d.m) || 0) + 1);
+            }
+            if (this.matchTimeFilters(d, filters, 'hour')) {
+                hourMap.set(d.h, (hourMap.get(d.h) || 0) + 1);
+            }
+        }
 
         return { year: yearMap, month: monthMap, hour: hourMap };
     }

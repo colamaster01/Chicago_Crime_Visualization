@@ -13,7 +13,7 @@ export const UI = {
 
         // 定义滑块的极值和格式化规则
         const sliders = [
-            { id: 'year', min: 2001, max: 2026, format: (v) => v },
+            { id: 'year', min: 2020, max: 2026, format: (v) => v },
             // 【修改点】：利用字典，把传进来的数字 v 翻译成对应的英文字符串
             { id: 'month', min: 1, max: 12, format: (v) => monthNames[v] },
             { id: 'hour', min: 0, max: 24, format: (v) => `${v}:00` }

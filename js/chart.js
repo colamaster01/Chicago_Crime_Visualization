@@ -50,7 +50,7 @@ export const ChartRenderer = {
 
     updateAllHistograms(histData, currentFilters) {
         if (!histData) return;
-        this.drawSparkline('year-chart', histData.year, 2001, 2026, currentFilters.year);
+        this.drawSparkline('year-chart', histData.year, 2020, 2026, currentFilters.year);
         this.drawSparkline('month-chart', histData.month, 1, 12, currentFilters.month);
         this.drawSparkline('hour-chart', histData.hour, 0, 24, currentFilters.hour);
     }
