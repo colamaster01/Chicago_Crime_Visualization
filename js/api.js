@@ -21,18 +21,18 @@ export const API = {
             // 2. 使用 Promise 包装 PapaParse 的异步流式读取
             return new Promise((resolve, reject) => {
                 let parsedCount = 0;
+                const totalEstimatedRecords = 1700000; // 👈 【新增】：估算的总数据量 (170万条)
                 
                 Papa.parse('chicago_crimes_data_20-26.csv', {
-                    download: true,       // 开启网络流式下载
-                    header: false,        // 我们用硬编码索引取值，不生成 key-value 对象以节省极大内存
+                    download: true,
+                    header: false,
                     skipEmptyLines: true,
-                    chunkSize: 1024 * 1024 * 2, // 每次只吞下 2MB 数据，绝不撑爆内存
+                    chunkSize: 1024 * 1024 * 2,
                     
-                    // 👈 【核心魔法】：每次解析完 2MB，就触发一次 chunk 回调
                     chunk: (results) => {
                         for (let i = 0; i < results.data.length; i++) {
                             const p = results.data[i];
-                            if (p[0] === 'lat') continue; // 扔掉 CSV 第一行的表头
+                            if (p[0] === 'lat') continue;
                             
                             this.allData.push({
                                 lat: parseFloat(p[0]), lng: parseFloat(p[1]),
@@ -43,14 +43,24 @@ export const API = {
                         
                         parsedCount += results.data.length;
                         
-                        // 动态更新 Loading 屏幕上的数字 (单位：万条)，缓解用户焦虑！
+                        // 👈 【新增】：计算百分比并更新进度条宽度
+                        const progressBar = document.getElementById('loader-progress');
+                        if (progressBar) {
+                            // 防止数据超标导致百分比超过 100%
+                            let percent = Math.min((parsedCount / totalEstimatedRecords) * 100, 100);
+                            progressBar.style.width = `${percent}%`;
+                        }
+                        
                         if(loaderText) {
                             loaderText.innerText = `Parsing records... ${(parsedCount / 10000).toFixed(1)}W`;
                         }
                     },
                     
-                    // 👈 170万条数据全部吸完后的回调
                     complete: () => {
+                        // 👈 【新增】：读完后强制把进度条拉满到 100%
+                        const progressBar = document.getElementById('loader-progress');
+                        if (progressBar) progressBar.style.width = '100%';
+
                         if(loaderText) loaderText.innerText = "Building Crossfilter Multi-dimensional Index...";
                         
                         // 使用 setTimeout 稍微释放一下主线程，让浏览器有机会把上面那行文字渲染出来

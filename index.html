@@ -15,6 +15,22 @@
 </head>
 
 <body>
+
+  <div id="global-loader">
+    <div class="loader-content">
+      
+      <!-- 👇 【修改点】：把之前的 <div class="spinner"></div> 替换成下面这块 -->
+      <div class="progress-wrapper">
+        <div class="progress-bar-bg">
+          <div id="loader-progress" class="progress-bar-fill"></div>
+        </div>
+      </div>
+      
+      <h2 style="margin: 15px 0 5px 0; color: #fff;">System Initializing</h2>
+      <p id="loader-text" style="color: #94a3b8; font-size: 14px; margin: 0;">Connecting to data stream...</p>
+    </div>
+  </div>
+
   <div class="dashboard-layout">
     
     <!-- ================== 左侧面板 (占宽 75%) ================== -->

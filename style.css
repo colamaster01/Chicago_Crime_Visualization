@@ -1,4 +1,48 @@
 /* ==========================================================================
+   0. 全局防误触加载页面 (Blocking Global Loader)
+   ========================================================================== */
+#global-loader {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #0f172a; 
+    z-index: 99999; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease-out; 
+}
+
+.loader-content {
+    text-align: center;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    width: 300px; /* 限制一下整体宽度 */
+}
+
+/* 👇 【新增】：进度条专属样式 */
+.progress-wrapper {
+    width: 100%;
+    margin: 0 auto;
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 8px; /* 进度条粗细 */
+    background: rgba(255, 255, 255, 0.1); /* 暗色底槽 */
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.progress-bar-fill {
+    width: 0%; /* 初始宽度为0 */
+    height: 100%;
+    background: linear-gradient(90deg, #3ca0eb, #60a5fa, #93c5fd); /* 科技蓝渐变 */
+    border-radius: 4px;
+    transition: width 0.1s linear; /* 进度平滑增长动画 */
+    box-shadow: 0 0 10px rgba(96, 165, 250, 0.5); /* 微微的发光效果 */
+}
+
+/* ==========================================================================
    1. 基础重置与 Dashboard 整体网格布局
    ========================================================================== */
 body { 
