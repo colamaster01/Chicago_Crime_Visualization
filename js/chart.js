@@ -1,57 +1,120 @@
+import { State } from './state.js'; 
+
 export const ChartRenderer = {
-    
-    // 纯原生 JS 绘制柱状图，脱离 D3 依赖！
-    drawSparkline(containerId, dataMap, minKey, maxKey, currentRange) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
+    // 【防崩溃核心1】：建立缓存注册表，图表只画一次，后续只更新高度！
+    charts: {}, 
 
-        // 1. 清空旧画布
-        container.innerHTML = '';
+    drawBrushChart(containerId, filterKey, dataMap, minKey, maxKey, currentFilters) {
+        const container = d3.select(`#${containerId}`);
+        const node = container.node();
+        if (!node) return;
 
-        // 2. 补全数据并找到最大值 (代替 d3.max 和 d3.scaleLinear)
-        const data = [];
-        let maxVal = 1;
-        for (let k = minKey; k <= maxKey; k++) {
-            const val = dataMap.get(k) || 0;
-            data.push({ key: k, value: val });
-            if (val > maxVal) maxVal = val;
+        // 1. 数据对齐与最大值计算
+        const domainArr = d3.range(minKey, maxKey + 1);
+        const data = domainArr.map(k => ({ key: k, value: dataMap.get(k) || 0 }));
+        const maxY = d3.max(data, d => d.value) || 1;
+
+        // ==========================================
+        // 2. 初始化阶段 (每个画布只在第一次加载时执行)
+        // ==========================================
+        if (!this.charts[containerId]) {
+            const margin = {top: 5, right: 10, bottom: 20, left: 10};
+            const width = node.clientWidth - margin.left - margin.right;
+            const height = node.clientHeight - margin.top - margin.bottom;
+
+            const svg = container.append('svg')
+                .attr('width', node.clientWidth)
+                .attr('height', node.clientHeight)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleLinear().domain([minKey, maxKey]).range([0, width]);
+            const y = d3.scaleLinear().domain([0, maxY]).range([height, 0]);
+
+            const barWidth = Math.max(2, (width / (maxKey - minKey)) - 2); 
+
+            // 画出蓝色的数据柱
+            const bars = svg.selectAll('.bar')
+                .data(data)
+                .enter().append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => x(d.key) - barWidth/2)
+                .attr('y', d => y(d.value))
+                .attr('width', barWidth)
+                .attr('height', d => height - y(d.value))
+                .attr('fill', '#3ca0eb')
+                .attr('rx', 1);
+
+            // 画底部的 X 坐标轴
+            svg.append('g')
+                .attr('class', 'axis-x')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d")))
+                .style("color", "#64748b"); 
+
+            // 【核心魔法】：添加 D3 画刷
+            const brush = d3.brushX()
+                .extent([[0, 0], [width, height]]) 
+                // 同时监听拖拽中 (brush) 和 松手 (end)
+                .on('brush end', (event) => {
+                    // 【防崩溃核心2】：如果事件不是真实用户的鼠标/触摸触发的（比如代码触发的），直接忽略！彻底阻断死循环。
+                    if (!event.sourceEvent) return;
+
+                    let selectedRange;
+                    if (!event.selection) {
+                        // 如果用户单击了空白处，意为“重置/全选”
+                        selectedRange = [minKey, maxKey];
+                        // 异步将画刷弹回全屏状态
+                        setTimeout(() => brushGroup.call(brush.move, [0, width]), 0);
+                    } else {
+                        // 将像素换算为年份/月份
+                        const [x0, x1] = event.selection.map(x.invert);
+                        selectedRange = [Math.round(x0), Math.round(x1)];
+                        if (selectedRange[0] === selectedRange[1]) return; 
+                    }
+
+                    // 拖动时：实时更新上面的文字标签
+                    d3.select(`#${filterKey}-label`).text(`${selectedRange[0]} - ${selectedRange[1]}`);
+
+                    // 只有在真正松开鼠标 (end) 时，才去骚扰 State 大脑和渲染地图，保证极度丝滑
+                    if (event.type === 'end') {
+                        State.updateFilter(filterKey, selectedRange);
+                    }
+                });
+
+            const brushGroup = svg.append('g')
+                .attr('class', 'brush')
+                .call(brush);
+
+            // 【满足你的需求】：一开始，让画刷默认“全选”整个范围
+            brushGroup.call(brush.move, [0, width]);
+
+            // 将图表的重要零件存入缓存，下次更新直接调用
+            this.charts[containerId] = { y, height, bars };
+        } 
+        
+        // ==========================================
+        // 3. 更新阶段 (当 Crossfilter 数据变动时执行)
+        // ==========================================
+        else {
+            const chart = this.charts[containerId];
+            
+            // 动态更新 Y 轴的最大高度比例尺
+            chart.y.domain([0, maxY]);
+
+            // 【注入灵魂】：让柱子像水一样带有弹性的过渡动画 (Transition)
+            chart.bars.data(data)
+                .transition()
+                .duration(250) // 250毫秒的丝滑升降动画
+                .attr('y', d => chart.y(d.value))
+                .attr('height', d => chart.height - chart.y(d.value));
         }
-
-        // 3. 用纯 DOM 创建 Flexbox 容器
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'flex-end'; // 让柱子从底部对齐
-        wrapper.style.height = '100%';
-        wrapper.style.width = '100%';
-        wrapper.style.gap = '2px'; // 代替 D3 的 padding(0.05)，控制柱子间隙
-
-        // 4. 循环生成每一根柱子
-        data.forEach(d => {
-            const bar = document.createElement('div');
-            
-            // 计算高度百分比
-            const heightPct = (d.value / maxVal) * 100;
-            const isActive = d.key >= currentRange[0] && d.key <= currentRange[1];
-            
-            // 赋予原来的 CSS 类名
-            bar.className = isActive ? 'chart-bar active' : 'chart-bar';
-            
-            // 写入内联动态样式
-            bar.style.height = `${heightPct}%`;
-            bar.style.flex = '1'; // 均分宽度
-            bar.style.borderTopLeftRadius = '2px';
-            bar.style.borderTopRightRadius = '2px';
-
-            wrapper.appendChild(bar);
-        });
-
-        container.appendChild(wrapper);
     },
 
     updateAllHistograms(histData, currentFilters) {
         if (!histData) return;
-        this.drawSparkline('year-chart', histData.year, 2020, 2026, currentFilters.year);
-        this.drawSparkline('month-chart', histData.month, 1, 12, currentFilters.month);
-        this.drawSparkline('hour-chart', histData.hour, 0, 24, currentFilters.hour);
+        this.drawBrushChart('year-chart', 'year', histData.year, 2020, 2026, currentFilters);
+        this.drawBrushChart('month-chart', 'month', histData.month, 1, 12, currentFilters);
+        this.drawBrushChart('hour-chart', 'hour', histData.hour, 0, 24, currentFilters);
     }
 };

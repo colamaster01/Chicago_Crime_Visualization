@@ -7,10 +7,9 @@ body {
     font-family: 'Helvetica Neue', Arial, sans-serif; 
     background-color: #f0f2f5; 
     height: 100vh;
-    overflow: hidden; /* 防止页面出现原生滚动条 */
+    overflow: hidden; 
 }
 
-/* 使用 Flexbox 拆分左右栏 */
 .dashboard-layout {
     display: flex;
     width: 100vw;
@@ -21,14 +20,14 @@ body {
    2. 左侧区域 (地图 4/5 + 底部时间轴 1/5)
    ========================================================================== */
 .left-panel {
-    width: 75%; /* 占宽 3/4 */
+    width: 75%; 
     display: flex;
     flex-direction: column;
 }
 
 #map { 
     width: 100%; 
-    height: 80%; /* 占高 4/5 */
+    height: 80%; 
     position: relative; 
     border-right: 1px solid #ddd;
 }
@@ -36,16 +35,16 @@ body {
 /* 底部时间轴面板 */
 #bottom-panel {
     width: 100%;
-    height: 20%; /* 占高 1/5 */
-    background: #ffffff; /* 【暗黑背景】深藏青色 */
+    height: 20%; 
+    background: #0f172a; /* 恢复暗黑科技底色 */
     display: flex;
     align-items: center; 
     justify-content: space-around; 
     padding: 0 40px;
     box-sizing: border-box;
-    border-right: 1px solid #ffffff;
-    border-top: 1px solid #ffffff;
-    box-shadow: inset 0 2px 10px rgba(255, 255, 255, 0.2);
+    border-right: 1px solid #1e293b;
+    border-top: 1px solid #1e293b;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .horizontal-slider {
@@ -54,10 +53,10 @@ body {
 }
 
 /* ==========================================================================
-   3. 右侧面板 (占宽 1/4，合并了 Filter 和 Legend)
+   3. 右侧面板 (合并了 Filter 和 Legend)
    ========================================================================== */
 .right-panel {
-    width: 25%; /* 占宽 1/4 */
+    width: 25%; 
     height: 100%;
     background: #ffffff;
     padding: 25px 20px;
@@ -76,54 +75,34 @@ body {
     color: #2c3e50;
 }
 
-/* 合并后的图例+复选框样式 */
-.checkbox-list {
-    display: flex;
-    flex-direction: column;
-}
+.checkbox-list { display: flex; flex-direction: column; }
 
 .merged-legend-item {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    color: #444;
-    padding: 10px 8px;
-    cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: center;
+    font-size: 14px; color: #444; padding: 10px 8px;
+    cursor: pointer; border-bottom: 1px solid #f0f0f0;
     transition: background-color 0.2s, transform 0.1s;
     border-radius: 6px;
 }
 
-.merged-legend-item:hover {
-    background-color: #f8f9fa;
-    transform: translateX(2px); 
-}
-
-.merged-legend-item input[type="checkbox"] {
-    margin-right: 12px;
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
+.merged-legend-item:hover { background-color: #f8f9fa; transform: translateX(2px); }
+.merged-legend-item input[type="checkbox"] { margin-right: 12px; width: 16px; height: 16px; cursor: pointer; }
 
 .legend-color { 
-    width: 14px; 
-    height: 14px; 
-    border-radius: 50%; 
-    margin-right: 12px; 
-    border: 1px solid #ddd; 
+    width: 14px; height: 14px; border-radius: 50%; 
+    margin-right: 12px; border: 1px solid #ddd; 
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 /* ==========================================================================
-   4. 通用排版组件 (根据截图风格优化)
+   4. 通用排版组件
    ========================================================================== */
 .filter-group label {
     display: flex;
-    align-items: baseline; /* 保证英文和小数字底部对齐 */
+    align-items: baseline; 
     font-size: 11px;
     font-weight: 700;
-    margin-bottom: 8px; /* 文字和下方滑块的间距 */
+    margin-bottom: 8px; 
     color: #64748b;
     text-transform: uppercase; 
     letter-spacing: 1px;
@@ -133,126 +112,41 @@ body {
     color: #3ca0eb;
     font-weight: 600;
     font-size: 13px;
-    margin-left: 8px; /* 让数字紧跟在 YEAR 后面 */
-    /* 删除了之前的 float: right; */
+    margin-left: 8px; 
 }
 
 /* ==========================================================================
-   5. 自定义双向范围滑块 (Dual Range Slider)
-   ========================================================================== */
-.dual-slider-container {
-    position: relative;
-    width: 100%;
-    height: 35px;
-    margin-top: 0; /* 修改为 0，因为文字已经有 bottom-margin 了 */
-}
-
-/* 基础轨道 */
-.slider-track {
-    position: absolute;
-    top: 12px;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    background: #000000; /* 【轨道色】深灰色 */
-    border-radius: 2px;
-}
-
-/* 两个滑块中间的高亮填充 */
-.slider-fill {
-    position: absolute;
-    top: 12px;
-    height: 4px;
-    background: #3ca0eb; /* 【填充色】科技蓝 */
-    border-radius: 2px;
-    z-index: 1;
-}
-
-/* 刻度容器 */
-/* 刻度容器：上移使其与时间轴重合 */
-.slider-ticks {
-    position: absolute;
-    top: 9px; /* 【修改点】：原来是 22px，现在上移 13px，刚好穿过轨道 */
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 7px; 
-    box-sizing: border-box;
-    z-index: 0; /* 把它放在高亮蓝条的下面，显得更有层次 */
-}
-
-/* 每一根小格子线 */
-.slider-tick {
-    width: 2px; /* 稍微加粗一点点，增强可见度 */
-    height: 7px; /* 长度刚好上下穿出细细的轨道 */
-    background: #94a3b8; /* 【修改点】：换成柔和的灰蓝色，比纯黑更有质感 */
-}
-
-/* 隐藏默认输入框 */
-.dual-slider-container input[type="range"] {
-    position: absolute;
-    top: 8px;
-    left: 0;
-    width: 100%;
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    pointer-events: none; 
-    z-index: 2;
-    margin: 0;
-}
-
-/* 自定义滑块按钮 */
-.dual-slider-container input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    pointer-events: auto; 
-    width: 10px; /* 稍微缩小滑块以显得更精致 */
-    height: 10px;
-    border-radius: 50%;
-    background: #3ca0eb; /* 【滑块色】纯蓝无白底 */
-    border: none; /* 移除边框 */
-    cursor: grab;
-    box-shadow: 0 0 5px rgba(60, 160, 235, 0.5); /* 蓝色荧光发光效果 */
-}
-
-.dual-slider-container input[type="range"]::-webkit-slider-thumb:active {
-    cursor: grabbing;
-    background: #60a5fa; /* 点击时变亮 */
-    box-shadow: 0 0 8px rgba(96, 165, 250, 0.8);
-}
-
-.slider-hint {
-    font-size: 11px;
-    color: #475569;
-    margin-top: 8px;
-    text-align: right;
-    font-style: italic;
-}
-
-/* ==========================================================================
-   6. D3.js 时间轴柱状图样式
+   5. D3.js 画布与交互画刷 (Brush) 样式
    ========================================================================== */
 .chart-canvas {
-    /* 删除了原有的 position: absolute 和 bottom 属性 */
     width: 100%;
-    height: 45px; 
-    padding: 0 7px; 
-    box-sizing: border-box;
-    border-bottom: 1px solid #1e293b; /* 截图中柱状图下方的暗色分割线 */
-    margin-bottom: 8px; /* 柱状图和下方文字标签的间距 */
 }
 
-/* 柱子的基础样式（未在滑块选中范围内时的颜色） */
-.chart-bar {
-    /* 【修改点】：SVG 用 fill，普通的 DIV 要用 background-color */
-    background-color: #3ca0eb; 
-    opacity: 0.25; 
-    transition: height 0.3s ease, opacity 0.3s ease, background-color 0.3s ease; 
+/* 隐藏 D3 默认的丑陋外边框，允许直接在空白处点击重置 */
+.brush .overlay {
+    pointer-events: all;
 }
 
-/* 被滑块圈中时的柱子样式（高亮） */
-.chart-bar.active {
-    background-color: #3ca0eb; 
-    opacity: 1.0;  
+/* 框选区域 (Brush Selection) 的极客半透明科技蓝风格 */
+.brush .selection {
+    fill: #3ca0eb; 
+    fill-opacity: 0.3;
+    stroke: #60a5fa; 
+    stroke-width: 1px;
+}
+
+/* 左右拖拽手柄颜色 */
+.brush .handle {
+    fill: #1e40af;
+}
+
+/* X 坐标轴文字和线条优化 */
+.axis-x text {
+    font-size: 10px;
+    font-weight: 500;
+    fill: #94a3b8; /* 文字变成淡灰色以适应暗黑底色 */
+}
+
+.axis-x path, .axis-x line {
+    stroke: #475569; /* 轴线颜色 */
 }

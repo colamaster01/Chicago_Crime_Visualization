@@ -7,6 +7,9 @@
   <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css' />
   <script src='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js'></script>
   
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter2/1.5.4/crossfilter.min.js"></script>
+  
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -18,39 +21,18 @@
       <div id="bottom-panel">
         
         <div class="filter-group horizontal-slider">
-          <div id="year-chart" class="chart-canvas"></div>
-          <label>YEAR <span id="year-label" class="highlight-text">2001 - 2026</span></label>
-          <div class="dual-slider-container">
-            <div class="slider-track"></div>
-            <div class="slider-fill" id="year-fill"></div>
-            <div class="slider-ticks" id="year-ticks"></div>
-            <input type="range" id="year-min" min="2020" max="2026" value="2001" step="1">
-            <input type="range" id="year-max" min="2020" max="2026" value="2026" step="1">
-          </div>
+          <label>YEAR <span id="year-label" class="highlight-text">2020 - 2026</span></label>
+          <div id="year-chart" class="chart-canvas" style="height: 65px;"></div>
         </div>
 
         <div class="filter-group horizontal-slider">
-          <div id="month-chart" class="chart-canvas"></div>
-          <label>MONTH <span id="month-label" class="highlight-text">JAN - DEC</span></label>
-          <div class="dual-slider-container">
-            <div class="slider-track"></div>
-            <div class="slider-fill" id="month-fill"></div>
-            <div class="slider-ticks" id="month-ticks"></div>
-            <input type="range" id="month-min" min="1" max="12" value="1" step="1">
-            <input type="range" id="month-max" min="1" max="12" value="12" step="1">
-          </div>
+          <label>MONTH <span id="month-label" class="highlight-text">1 - 12</span></label>
+          <div id="month-chart" class="chart-canvas" style="height: 65px;"></div>
         </div>
 
         <div class="filter-group horizontal-slider">
-          <div id="hour-chart" class="chart-canvas"></div>
-          <label>HOUR <span id="hour-label" class="highlight-text">0:00 - 24:00</span></label>
-          <div class="dual-slider-container">
-            <div class="slider-track"></div>
-            <div class="slider-fill" id="hour-fill"></div>
-            <div class="slider-ticks" id="hour-ticks"></div>
-            <input type="range" id="hour-min" min="0" max="24" value="0" step="1">
-            <input type="range" id="hour-max" min="0" max="24" value="24" step="1">
-          </div>
+          <label>HOUR <span id="hour-label" class="highlight-text">0 - 24</span></label>
+          <div id="hour-chart" class="chart-canvas" style="height: 65px;"></div>
         </div>
 
       </div>

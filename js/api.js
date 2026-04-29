@@ -1,13 +1,18 @@
 export const API = {
-    allData: [],      // 存放所有案件的内存数组
-    mappings: {},     // 存放 ID 到文本的翻译字典
+    allData: [],
+    mappings: {},
     isLoaded: false,
+    
+    // Crossfilter 核心实例与索引
+    cf: null,
+    dims: {},
+    groups: {},
 
     // ==========================================
-    // 1. 初始化：吃透你的 CSV 和 JSON
+    // 1. 初始化：吃透数据并建立 Crossfilter 索引
     // ==========================================
     async init() {
-        console.log("⏳ 正在将 7 年犯罪数据载入内存...");
+        console.log("⏳ 正在将数据载入内存并建立 Crossfilter 索引...");
         try {
             const jsonRes = await fetch('crime_mapping.json');
             this.mappings = await jsonRes.json();
@@ -16,35 +21,49 @@ export const API = {
             const csvText = await csvRes.text();
             
             const lines = csvText.split('\n');
-            // 根据你的 Python 脚本输出，列的顺序是: lat, lng, y, m, d, h, ca, t, desc
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
                 const p = lines[i].split(',');
                 this.allData.push({
                     lat: parseFloat(p[0]), lng: parseFloat(p[1]),
                     y: parseInt(p[2]), m: parseInt(p[3]), d: parseInt(p[4]), h: parseInt(p[5]),
-                    ca: parseInt(p[6]), // 社区编号 Community Area
-                    t: parseInt(p[7]),  // 类型 ID
-                    desc: parseInt(p[8]) // 描述 ID
+                    ca: parseInt(p[6]),
+                    t: parseInt(p[7]),
+                    desc: parseInt(p[8])
                 });
             }
+
+            // 【魔法开始】：初始化 Crossfilter 实例
+            this.cf = crossfilter(this.allData);
+
+            // 创建 5 个核心维度 (Dimensions)
+            this.dims.year = this.cf.dimension(d => d.y);
+            this.dims.month = this.cf.dimension(d => d.m);
+            this.dims.hour = this.cf.dimension(d => d.h);
+            this.dims.type = this.cf.dimension(d => d.t);
+            this.dims.ca = this.cf.dimension(d => d.ca);
+
+            // 创建对应的统计分组 (Groups)，用于极速生成柱状图和热力图
+            this.groups.year = this.dims.year.group();
+            this.groups.month = this.dims.month.group();
+            this.groups.hour = this.dims.hour.group();
+            this.groups.ca = this.dims.ca.group();
+
             this.isLoaded = true;
-            console.log(`✅ 成功载入 ${this.allData.length} 条案件数据！`);
+            console.log(`✅ Crossfilter 索引建立完毕！共 ${this.cf.size()} 条案件。`);
         } catch (e) {
-            console.error("❌ 数据加载失败，请检查文件是否存在", e);
+            console.error("❌ 数据加载失败", e);
         }
     },
 
     // ==========================================
-    // 2. 辅助函数：将勾选的字符串转为 ID 集合
+    // 2. 状态同步：将 UI 的过滤条件注入 Crossfilter
     // ==========================================
     getAllowedTypeIds(crimeTypesStrArray) {
         const allowed = new Set();
         if (!crimeTypesStrArray || crimeTypesStrArray.length === 0) return allowed;
-
         const hasOther = crimeTypesStrArray.includes('OTHER');
         const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
-        
         for (const [idStr, name] of Object.entries(this.mappings.types)) {
             const id = parseInt(idStr);
             if (crimeTypesStrArray.includes(name)) allowed.add(id);
@@ -53,11 +72,25 @@ export const API = {
         return allowed;
     },
 
-    matchTimeFilters(d, filters, excludeKey = null) {
-        if (excludeKey !== 'year' && filters.year && (d.y < filters.year[0] || d.y > filters.year[1])) return false;
-        if (excludeKey !== 'month' && filters.month && (d.m < filters.month[0] || d.m > filters.month[1])) return false;
-        if (excludeKey !== 'hour' && filters.hour && (d.h < filters.hour[0] || d.h > filters.hour[1])) return false;
-        return true;
+    updateCrossfilterState(filters) {
+        // 1. 类型过滤 (使用 filterFunction)
+        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        if (allowedTypes.size === 0) {
+            this.dims.type.filter(-1); // 如果什么都没勾，传入一个不存在的 ID 以清空数据
+        } else {
+            this.dims.type.filterFunction(t => allowedTypes.has(t));
+        }
+
+        // 2. 时间过滤 (使用 filterRange)
+        // 注意：Crossfilter 的 filterRange 是 [包含, 不包含)，所以上限要 +1
+        if (filters.year) this.dims.year.filterRange([filters.year[0], filters.year[1] + 1]);
+        else this.dims.year.filterAll();
+
+        if (filters.month) this.dims.month.filterRange([filters.month[0], filters.month[1] + 1]);
+        else this.dims.month.filterAll();
+
+        if (filters.hour) this.dims.hour.filterRange([filters.hour[0], filters.hour[1] + 1]);
+        else this.dims.hour.filterAll();
     },
 
     // ==========================================
@@ -66,16 +99,20 @@ export const API = {
     async fetchCrimes(filters, bounds) {
         if (!this.isLoaded || !bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
         
-        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        // 瞬间应用所有过滤条件
+        this.updateCrossfilterState(filters);
+        
+        // 获取所有符合当前条件的记录（微秒级）
+        // 可以调用任何维度的 top() 方法，它会返回受全局过滤影响的剩余数据
+        const filteredRecords = this.dims.type.top(Infinity); 
+        
         const features = [];
         const [south, north, west, east] = [bounds.getSouth(), bounds.getNorth(), bounds.getWest(), bounds.getEast()];
 
-        for (let i = 0; i < this.allData.length; i++) {
-            const d = this.allData[i];
-            // 空间过滤 (如果在视野外直接跳过)
+        // 空间过滤 (只针对已经筛出来的这一小部分数据做边界判断)
+        for (let i = 0; i < filteredRecords.length; i++) {
+            const d = filteredRecords[i];
             if (d.lat < south || d.lat > north || d.lng < west || d.lng > east) continue;
-            // 类型与时间过滤
-            if (!allowedTypes.has(d.t) || !this.matchTimeFilters(d, filters)) continue;
 
             features.push({
                 type: "Feature",
@@ -96,7 +133,6 @@ export const API = {
     async fetchMacroLayer(filters) {
         if (!this.isLoaded) return null;
 
-        // 获取社区边界 GeoJSON (只请求一次并缓存)
         if (!window.cachedCommunityGeoJson) {
             const geoRes = await fetch('https://data.cityofchicago.org/resource/igwz-8jzy.geojson');
             window.cachedCommunityGeoJson = await geoRes.json();
@@ -108,18 +144,14 @@ export const API = {
             return { geoJson, thresholds: { p20: 1, p40: 2, p60: 3, p80: 4 }, isEmpty: true };
         }
 
-        // 内存中按社区(ca)进行 Count
+        // 同步状态后，直接向 caGroup 要数据，它已经帮你算好了每个社区的总数！
+        this.updateCrossfilterState(filters);
+        const groupedData = this.groups.ca.all(); // 结果如 [{key: 1, value: 500}, ...]
+        
+        // 转为便于查询的字典
         const caCounts = {};
-        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        groupedData.forEach(g => { caCounts[g.key] = g.value; });
 
-        for (let i = 0; i < this.allData.length; i++) {
-            const d = this.allData[i];
-            if (d.ca !== 0 && allowedTypes.has(d.t) && this.matchTimeFilters(d, filters)) {
-                caCounts[d.ca] = (caCounts[d.ca] || 0) + 1;
-            }
-        }
-
-        // 注入 GeoJSON 并计算颜色阈值分位数
         const countsArray = [];
         geoJson.features.forEach(f => {
             const areaId = parseInt(f.properties.area_num_1);
@@ -134,7 +166,6 @@ export const API = {
         let p60 = countsArray[Math.floor(countsArray.length * 0.6)] || 3;
         let p80 = countsArray[Math.floor(countsArray.length * 0.8)] || 4;
 
-        // 保证分位数递增，防止地图渲染报错
         if (p40 <= p20) p40 = p20 + 1;
         if (p60 <= p40) p60 = p40 + 1;
         if (p80 <= p60) p80 = p60 + 1;
@@ -143,35 +174,28 @@ export const API = {
     },
 
     // ==========================================
-    // 5. 柱状图数据 (利用反向排除法计算直方图)
+    // 5. 柱状图数据 (利用 Crossfilter 原生特性)
     // ==========================================
     async fetchHistograms(filters) {
-        const yearMap = new Map();
-        const monthMap = new Map();
-        const hourMap = new Map();
-
         if (!this.isLoaded || !filters.crimeTypes || filters.crimeTypes.length === 0) {
-            return { year: yearMap, month: monthMap, hour: hourMap };
+            return { year: new Map(), month: new Map(), hour: new Map() };
         }
 
-        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        // 应用过滤条件
+        this.updateCrossfilterState(filters);
 
-        // 扫一遍全量数据，各自跳过自己的维度进行计数
-        for (let i = 0; i < this.allData.length; i++) {
-            const d = this.allData[i];
-            if (!allowedTypes.has(d.t)) continue;
+        // 辅助函数：将 CF 的 [{key: 2020, value: 50}, ...] 转为原架构需要的 Map
+        const cfGroupToMap = (group) => {
+            const map = new Map();
+            // group.all() 极其智能，它会自动忽略自身维度的 filter！
+            group.all().forEach(d => map.set(d.key, d.value));
+            return map;
+        };
 
-            if (this.matchTimeFilters(d, filters, 'year')) {
-                yearMap.set(d.y, (yearMap.get(d.y) || 0) + 1);
-            }
-            if (this.matchTimeFilters(d, filters, 'month')) {
-                monthMap.set(d.m, (monthMap.get(d.m) || 0) + 1);
-            }
-            if (this.matchTimeFilters(d, filters, 'hour')) {
-                hourMap.set(d.h, (hourMap.get(d.h) || 0) + 1);
-            }
-        }
-
-        return { year: yearMap, month: monthMap, hour: hourMap };
+        return { 
+            year: cfGroupToMap(this.groups.year), 
+            month: cfGroupToMap(this.groups.month), 
+            hour: cfGroupToMap(this.groups.hour) 
+        };
     }
 };
