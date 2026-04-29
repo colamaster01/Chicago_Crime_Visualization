@@ -8,47 +8,83 @@ export const API = {
     groups: {},
 
     async init() {
-        console.log("⏳ 正在建立连续时间 (Time of Day) 索引...");
+        console.log("⏳ 启动流式引擎 (Streaming Parser)...");
         try {
+            // 1. 获取字典映射
             const jsonRes = await fetch('crime_mapping.json');
             this.mappings = await jsonRes.json();
 
-            const csvRes = await fetch('chicago_crimes_data_20-26.csv');
-            const csvText = await csvRes.text();
-            
-            const lines = csvText.split('\n');
-            for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                const p = lines[i].split(',');
-                this.allData.push({
-                    lat: parseFloat(p[0]), lng: parseFloat(p[1]),
-                    y: parseInt(p[2]), m: parseInt(p[3]), d: parseInt(p[4]), h: parseInt(p[5]),
-                    min: parseInt(p[6]), 
-                    ca: parseInt(p[7]),  
-                    t: parseInt(p[8]),   
-                    desc: parseInt(p[9]) 
+            // 抓取页面上的 Loading 文本元素
+            const loaderText = document.getElementById('loader-text');
+            if(loaderText) loaderText.innerText = "Connecting to data stream...";
+
+            // 2. 使用 Promise 包装 PapaParse 的异步流式读取
+            return new Promise((resolve, reject) => {
+                let parsedCount = 0;
+                
+                Papa.parse('chicago_crimes_data_20-26.csv', {
+                    download: true,       // 开启网络流式下载
+                    header: false,        // 我们用硬编码索引取值，不生成 key-value 对象以节省极大内存
+                    skipEmptyLines: true,
+                    chunkSize: 1024 * 1024 * 2, // 每次只吞下 2MB 数据，绝不撑爆内存
+                    
+                    // 👈 【核心魔法】：每次解析完 2MB，就触发一次 chunk 回调
+                    chunk: (results) => {
+                        for (let i = 0; i < results.data.length; i++) {
+                            const p = results.data[i];
+                            if (p[0] === 'lat') continue; // 扔掉 CSV 第一行的表头
+                            
+                            this.allData.push({
+                                lat: parseFloat(p[0]), lng: parseFloat(p[1]),
+                                y: parseInt(p[2]), m: parseInt(p[3]), d: parseInt(p[4]), h: parseInt(p[5]),
+                                min: parseInt(p[6]), ca: parseInt(p[7]), t: parseInt(p[8]), desc: parseInt(p[9])
+                            });
+                        }
+                        
+                        parsedCount += results.data.length;
+                        
+                        // 动态更新 Loading 屏幕上的数字 (单位：万条)，缓解用户焦虑！
+                        if(loaderText) {
+                            loaderText.innerText = `Parsing records... ${(parsedCount / 10000).toFixed(1)}W`;
+                        }
+                    },
+                    
+                    // 👈 170万条数据全部吸完后的回调
+                    complete: () => {
+                        if(loaderText) loaderText.innerText = "Building Crossfilter Multi-dimensional Index...";
+                        
+                        // 使用 setTimeout 稍微释放一下主线程，让浏览器有机会把上面那行文字渲染出来
+                        setTimeout(() => {
+                            this.cf = crossfilter(this.allData);
+
+                            this.dims.year = this.cf.dimension(d => d.y);
+                            this.dims.month = this.cf.dimension(d => d.m);
+                            this.dims.time = this.cf.dimension(d => d.h + d.min / 60.0);
+                            this.dims.type = this.cf.dimension(d => d.t);
+                            this.dims.ca = this.cf.dimension(d => d.ca);
+
+                            this.groups.year = this.dims.year.group();
+                            this.groups.month = this.dims.month.group();
+                            this.groups.time = this.dims.time.group(d => Math.floor(d));
+                            this.groups.ca = this.dims.ca.group();
+
+                            this.isLoaded = true;
+                            console.log(`✅ 流式解析与索引建立完毕！完美吞下 ${this.cf.size()} 条案件。`);
+                            resolve(); // 告诉外部，初始化大功告成！
+                        }, 50);
+                    },
+                    
+                    // 应对网络中断
+                    error: (err) => {
+                        console.error("流式读取失败", err);
+                        if(loaderText) loaderText.innerText = "Stream interrupted. Please refresh.";
+                        reject(err);
+                    }
                 });
-            }
+            });
 
-            this.cf = crossfilter(this.allData);
-
-            this.dims.year = this.cf.dimension(d => d.y);
-            this.dims.month = this.cf.dimension(d => d.m);
-            // 👈 【核心魔法 1】：创建一个基于小数点的 24 小时维度 (如 8:45 = 8.75)
-            this.dims.time = this.cf.dimension(d => d.h + d.min / 60.0);
-            this.dims.type = this.cf.dimension(d => d.t);
-            this.dims.ca = this.cf.dimension(d => d.ca);
-
-            this.groups.year = this.dims.year.group();
-            this.groups.month = this.dims.month.group();
-            // 👈 【核心魔法 2】：数据分组时，每 15 分钟 (0.25 小时) 合并为一根柱子！
-  this.groups.time = this.dims.time.group(d => Math.floor(d)); 
-            this.groups.ca = this.dims.ca.group();
-
-            this.isLoaded = true;
-            console.log(`✅ Crossfilter 索引完毕，一天被精准切割为 96 根高频数据柱！`);
         } catch (e) {
-            console.error("❌ 数据加载失败", e);
+            console.error("❌ 数据初始化遭遇致命错误", e);
         }
     },
 
