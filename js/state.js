@@ -3,7 +3,7 @@ export const State = {
         // 全选状态即为数组两端的极值
         year: [2020, 2026],
         month: [1, 12],  
-        hour: [0, 24],  
+        time: [0, 24], // 👈 【核心】：合并为单一时间维度（浮点数 0.0 ~ 24.0）
         crimeTypes: ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE', 'OTHER'] 
     },
     

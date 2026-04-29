@@ -27,14 +27,14 @@ export const MapRenderer = {
     },
 
     setupLayers() {
-        // ================= 1. 宏观图层 (只在缩放 < 12.5 时显示) =================
+        // ================= 1. 宏观图层 =================
         this.map.addSource('macro-areas', { type: 'geojson', data: { type: "FeatureCollection", features: [] } });
         
         this.map.addLayer({
             id: 'area-fill',
             type: 'fill',
             source: 'macro-areas',
-            maxzoom: ZOOM_THRESHOLD, // 【关键】放大超过 12.5 就隐藏
+            maxzoom: ZOOM_THRESHOLD,
             paint: {
                 'fill-color': '#ccc', 
                 'fill-opacity': 0.75
@@ -45,7 +45,7 @@ export const MapRenderer = {
             id: 'area-borders',
             type: 'line',
             source: 'macro-areas',
-            maxzoom: ZOOM_THRESHOLD, // 【关键】放大超过 12.5 就隐藏
+            maxzoom: ZOOM_THRESHOLD,
             paint: { 'line-color': '#000000', 'line-width': 1.3, 'line-opacity': 0.5 }
         });
 
@@ -53,7 +53,7 @@ export const MapRenderer = {
             id: 'community-labels',
             type: 'symbol',
             source: 'macro-areas',
-            maxzoom: ZOOM_THRESHOLD, // 【关键】放大超过 12.5 就隐藏
+            maxzoom: ZOOM_THRESHOLD,
             layout: {
                 'text-field': ['get', 'community'], 
                 'text-size': 11,
@@ -63,23 +63,43 @@ export const MapRenderer = {
             paint: { 'text-color': '#333333', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
         });
 
-        // ================= 2. 微观图层 (只在缩放 >= 12.5 时显示) =================
+        // ================= 2. 微观聚类图层 =================
         this.map.addSource('micro-points', { 
             type: 'geojson', 
             data: { type: "FeatureCollection", features: [] },
-            cluster: true, clusterMaxZoom: 15, clusterRadius: 50
+            cluster: true, 
+            clusterMaxZoom: 15, 
+            // 【修改点 1】：将吸附半径从 50 爆改为 180，大幅减少聚类圈的数量！
+            clusterRadius: 180 
         });
 
         this.map.addLayer({
             id: 'clusters', 
             type: 'circle', 
             source: 'micro-points', 
-            minzoom: ZOOM_THRESHOLD, // 【关键】缩小低于 12.5 就隐藏
+            minzoom: ZOOM_THRESHOLD,
             filter: ['has', 'point_count'],
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#f1f075', 100, '#ff9800', 500, '#f44336'],
-                'circle-radius': ['step', ['get', 'point_count'], 20, 100, 30, 500, 40],
-                'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff'
+                // 【修改点 2】：重设颜色梯队 (黄 -> 橙 -> 亮红 -> 深红)
+                'circle-color': [
+                    'step', ['get', 'point_count'],
+                    '#ffe066',     // 默认：浅黄色 (< 1000)
+                    1000, '#ffb700', // >= 1000: 亮黄色
+                    5000, '#ff7b00', // >= 5000: 橘红色
+                    20000, '#f44336',// >= 20000: 鲜红色
+                    50000, '#b71c1c' // >= 50000: 深红色大点
+                ],
+                // 【修改点 3】：重设大小梯队 (圆圈半径差距拉大，体现视觉冲击)
+                'circle-radius': [
+                    'step', ['get', 'point_count'],
+                    25,           // 默认半径
+                    500, 30,
+                    1000, 40,
+                    5000, 45,
+                    10000, 50     // 超级巨无霸
+                ],
+                'circle-stroke-width': 3, 
+                'circle-stroke-color': 'rgba(255, 255, 255, 0.8)' // 半透明白边，更显高级
             }
         });
 
@@ -87,17 +107,17 @@ export const MapRenderer = {
             id: 'cluster-count', 
             type: 'symbol', 
             source: 'micro-points', 
-            minzoom: ZOOM_THRESHOLD, // 【关键】缩小低于 12.5 就隐藏
+            minzoom: ZOOM_THRESHOLD,
             filter: ['has', 'point_count'],
-            layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 14 },
-            paint: { 'text-color': '#333333' }
+            layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 15 },
+            paint: { 'text-color': '#000000' } // 黑色字体在彩色底上更清晰
         });
 
         this.map.addLayer({
             id: 'unclustered-point', 
             type: 'circle', 
             source: 'micro-points', 
-            minzoom: ZOOM_THRESHOLD, // 【关键】缩小低于 12.5 就隐藏
+            minzoom: ZOOM_THRESHOLD,
             filter: ['!', ['has', 'point_count']],
             paint: {
                 'circle-color': ['match', ['get', 'type'], 'THEFT', '#1f77b4', 'BATTERY', '#ff7f0e', 'CRIMINAL DAMAGE', '#ffbb78', 'NARCOTICS', '#2ca02c', 'ASSAULT', '#d62728', 'BURGLARY', '#9467bd', 'ROBBERY', '#8c564b', 'MOTOR VEHICLE THEFT', '#e377c2', 'HOMICIDE', '#000000', '#7f7f7f'],
@@ -107,19 +127,19 @@ export const MapRenderer = {
     },
 
     setupInteractions() {
-        // 宏观图层的悬停提示
         this.map.on('mousemove', 'area-fill', (e) => {
             this.map.getCanvas().style.cursor = 'pointer';
             const props = e.features[0].properties;
             const html = `<strong>${props.community}</strong><br><span style="color:#d32f2f">Crimes: ${props.crime_count || 0}</span>`;
             this.popup.setLngLat(e.lngLat).setHTML(html).addTo(this.map);
         });
+        
         this.map.on('mouseleave', 'area-fill', () => {
             this.map.getCanvas().style.cursor = '';
             this.popup.remove();
         });
 
-        // 聚类点击放大
+        // 点击聚类圆圈，自动缩放并散开
         this.map.on('click', 'clusters', async (e) => {
             const features = this.map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
             const zoom = await this.map.getSource('micro-points').getClusterExpansionZoom(features[0].properties.cluster_id);
@@ -147,12 +167,9 @@ export const MapRenderer = {
         
         this.map.getSource('macro-areas').setData(macroData.geoJson);
 
-        // 【修改点】：检查是否为空数据状态
         if (macroData.isEmpty) {
-            // 如果什么都没勾选，直接将整个底图涂成浅灰色 (#e0e0e0)
             this.map.setPaintProperty('area-fill', 'fill-color', '#6a6868');
         } else {
-            // 如果有勾选，恢复动态步进计算的热力色块
             const t = macroData.thresholds;
             this.map.setPaintProperty('area-fill', 'fill-color', [
                 'step', ['get', 'crime_count'],

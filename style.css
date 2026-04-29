@@ -36,11 +36,11 @@ body {
 #bottom-panel {
     width: 100%;
     height: 20%; 
-    background: #0f172a; /* 恢复暗黑科技底色 */
+    background: #0f172a; 
     display: flex;
     align-items: center; 
     justify-content: space-around; 
-    padding: 0 40px;
+    padding: 0 15px; /* 缩减内边距，释放宽度给图表 */
     box-sizing: border-box;
     border-right: 1px solid #1e293b;
     border-top: 1px solid #1e293b;
@@ -48,9 +48,14 @@ body {
 }
 
 .horizontal-slider {
-    flex: 1; 
-    margin: 0 30px; 
+    margin: 0 0px; /* 缩减外边距，让图表贴紧 */
+    min-width: 0;
 }
+
+/* 独立控制每个图表的比例宽度 (Flex 权重) */
+#year-slider-group { flex: 2.0; }
+#month-slider-group { flex: 2.0; }
+#time-slider-group { flex: 3.5; }
 
 /* ==========================================================================
    3. 右侧面板 (合并了 Filter 和 Legend)
@@ -122,12 +127,10 @@ body {
     width: 100%;
 }
 
-/* 隐藏 D3 默认的丑陋外边框，允许直接在空白处点击重置 */
 .brush .overlay {
     pointer-events: all;
 }
 
-/* 框选区域 (Brush Selection) 的极客半透明科技蓝风格 */
 .brush .selection {
     fill: #3ca0eb; 
     fill-opacity: 0.3;
@@ -135,18 +138,16 @@ body {
     stroke-width: 1px;
 }
 
-/* 左右拖拽手柄颜色 */
 .brush .handle {
     fill: #1e40af;
 }
 
-/* X 坐标轴文字和线条优化 */
 .axis-x text {
     font-size: 10px;
     font-weight: 500;
-    fill: #94a3b8; /* 文字变成淡灰色以适应暗黑底色 */
+    fill: #94a3b8; 
 }
 
 .axis-x path, .axis-x line {
-    stroke: #475569; /* 轴线颜色 */
+    stroke: #475569; 
 }

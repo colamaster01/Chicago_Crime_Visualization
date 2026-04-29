@@ -15,29 +15,32 @@
 
 <body>
   <div class="dashboard-layout">
+    
+    <!-- ================== 左侧面板 (占宽 75%) ================== -->
     <div class="left-panel">
       <div id="map"></div>
       
       <div id="bottom-panel">
         
-        <div class="filter-group horizontal-slider">
+        <div id="year-slider-group" class="filter-group horizontal-slider">
           <label>YEAR <span id="year-label" class="highlight-text">2020 - 2026</span></label>
-          <div id="year-chart" class="chart-canvas" style="height: 65px;"></div>
+          <div id="year-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
 
-        <div class="filter-group horizontal-slider">
-          <label>MONTH <span id="month-label" class="highlight-text">1 - 12</span></label>
-          <div id="month-chart" class="chart-canvas" style="height: 65px;"></div>
+        <div id="month-slider-group" class="filter-group horizontal-slider">
+          <label>MONTH <span id="month-label" class="highlight-text">JAN - DEC</span></label>
+          <div id="month-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
 
-        <div class="filter-group horizontal-slider">
-          <label>HOUR <span id="hour-label" class="highlight-text">0 - 24</span></label>
-          <div id="hour-chart" class="chart-canvas" style="height: 65px;"></div>
+        <div id="time-slider-group" class="filter-group horizontal-slider">
+          <label>TIME OF DAY <span id="time-label" class="highlight-text">00:00 - 24:00</span></label>
+          <div id="time-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
 
       </div>
-    </div>
+    </div> <!-- 👈 之前大概率就是丢了这一个闭合标签 -->
 
+    <!-- ================== 右侧面板 (占宽 25%) ================== -->
     <div class="right-panel">
       <div class="panel-title">Crime Types & Filters</div>
       <div class="checkbox-list">
@@ -56,8 +59,9 @@
         <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="OTHER" checked><div class="legend-color" style="background: #7f7f7f;"></div> Other</label>
       </div>
     </div>
+
   </div>
 
   <script type="module" src="js/main.js"></script>
 </body>
-</html>
+</html> 
