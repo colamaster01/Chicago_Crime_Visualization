@@ -1,34 +1,85 @@
 const ZOOM_THRESHOLD = 12.5; 
 
+// 预设的芝加哥初始视角
+const INITIAL_CENTER = [-87.7, 41.83];
+const INITIAL_ZOOM = 9.6;
+const INITIAL_PITCH = 0;
+const INITIAL_BEARING = 0;
+
+// 自定义“重回芝加哥”按钮控件
+class HomeButtonControl {
+    onAdd(map) {
+        this.map = map;
+        this.container = document.createElement('div');
+        this.container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+        
+        const button = document.createElement('button');
+        button.className = 'maplibregl-ctrl-icon';
+        button.type = 'button';
+        button.title = 'Reset to Chicago View';
+        button.style.cursor = 'pointer';
+        // 使用一个简单的 SVG 作为 Home 图标
+        button.innerHTML = `
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin: 6px auto; display: block; color: #333;">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+        `;
+
+        button.addEventListener('click', () => {
+            this.map.flyTo({
+                center: INITIAL_CENTER,
+                zoom: INITIAL_ZOOM,
+                pitch: INITIAL_PITCH,
+                bearing: INITIAL_BEARING,
+                essential: true // 强制执行动画，即使用户设置了偏好减少动画
+            });
+        });
+
+        this.container.appendChild(button);
+        return this.container;
+    }
+    onRemove() {
+        this.container.parentNode.removeChild(this.container);
+        this.map = undefined;
+    }
+}
+
+
 export const MapRenderer = {
     map: null, popup: null, isLoaded: false, 
     deckOverlay: null,      
     currentMacroData: null, 
     is3DActive: false,
     isMacroVisible: true, 
+    hoveredAreaId: null, 
 
     init(onReadyCallback) {
         this.map = new maplibregl.Map({
             container: 'map', 
             style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json', 
-            center: [-87.7, 41.83], 
-            zoom: 9.6,
-            pitch: 0 
+            center: INITIAL_CENTER, 
+            zoom: INITIAL_ZOOM,
+            pitch: INITIAL_PITCH,
+            bearing: INITIAL_BEARING
         });
         
         this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
         
-        // 👑 修复闪烁 1：给 Popup 增加专属类名 ghost-popup，让它彻底变成鼠标穿透的“幽灵”
+        this.map.addControl(new HomeButtonControl(), 'top-right');
+
         this.popup = new maplibregl.Popup({ 
-            closeButton: false, closeOnClick: false, anchor: 'bottom', offset: [0,-15],
+            closeButton: false, closeOnClick: false, anchor: 'bottom', offset: [0,-20], 
             className: 'ghost-popup'
         });
 
-        // 动态注入防闪烁样式
         if (!document.getElementById('ghost-popup-style')) {
             const style = document.createElement('style');
             style.id = 'ghost-popup-style';
-            style.innerHTML = `.ghost-popup { pointer-events: none !important; }`;
+            style.innerHTML = `
+                .ghost-popup { pointer-events: none !important; }
+                .ghost-popup * { pointer-events: none !important; }
+            `;
             document.head.appendChild(style);
         }
 
@@ -57,7 +108,7 @@ export const MapRenderer = {
         this.map.addLayer({
             id: 'area-fill', type: 'fill', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD,
             paint: { 
-                'fill-color': '#ccc', 
+                'fill-color': '#e2e8f0', 
                 'fill-opacity': 0.75, 
                 'fill-opacity-transition': { duration: 600 } 
             } 
@@ -85,7 +136,6 @@ export const MapRenderer = {
         });
     },
 
-    // 👑 辅助方法：统一生成社区弹窗的 HTML 结构，供 2D 和 3D 共同调用
     createMacroPopupHtml(props) {
         const total = props.crime_count || 0;
         const score = props.severity_score || 0; 
@@ -136,9 +186,6 @@ export const MapRenderer = {
     },
 
     setupInteractions() {
-        // ==========================================
-        // 👑 修复闪烁 2：剥离状态判定。2D下归2D管，3D下直接 Ignore 掉。
-        // ==========================================
         this.map.on('mouseenter', 'area-fill', () => { 
             if (!this.is3DActive) this.map.getCanvas().style.cursor = 'pointer'; 
         });
@@ -147,22 +194,31 @@ export const MapRenderer = {
             if (!this.is3DActive) {
                 this.map.getCanvas().style.cursor = ''; 
                 this.popup.remove();
+                this.hoveredAreaId = null; 
             }
         });
 
         this.map.on('mousemove', 'area-fill', (e) => {
-            if (this.is3DActive) return; // 3D状态下，剥夺 MapLibre 的悬停权利
-            const html = this.createMacroPopupHtml(e.features[0].properties);
-            this.popup.setLngLat(e.lngLat).setHTML(html).addTo(this.map);
+            if (this.is3DActive) return; 
+            const props = e.features[0].properties;
+            const areaId = props.area_num_1;
+
+            if (this.hoveredAreaId !== areaId) {
+                this.hoveredAreaId = areaId;
+                const html = this.createMacroPopupHtml(props);
+                this.popup.setHTML(html);
+            }
+            
+            this.popup.setLngLat(e.lngLat);
+            if (!this.popup.isOpen()) this.popup.addTo(this.map); 
         });
 
         this.map.on('click', 'area-fill', (e) => {
-            if (this.is3DActive) return; // 3D状态下的点击也剥夺
+            if (this.is3DActive) return; 
             const props = e.features[0].properties;
             if (this.onCommunityClick) this.onCommunityClick(parseInt(props.area_num_1), props.community || 'Unknown');
         });
 
-        // 3D 视角切换逻辑保持不变
         this.map.on('pitch', () => {
             const pitch = this.map.getPitch();
             const threshold = 35; 
@@ -170,13 +226,15 @@ export const MapRenderer = {
             if (pitch >= threshold && !this.is3DActive) {
                 this.is3DActive = true;
                 this.map.setPaintProperty('area-fill', 'fill-opacity', 0.2);
-                this.popup.remove(); // 视角拔起时，清理残留气泡
+                this.popup.remove();
+                this.hoveredAreaId = null; 
                 this.renderDeckLayer(); 
             } 
             else if (pitch < threshold && this.is3DActive) {
                 this.is3DActive = false;
                 this.map.setPaintProperty('area-fill', 'fill-opacity', 0.75);
-                this.popup.remove(); // 视角压平时，清理残留气泡
+                this.popup.remove();
+                this.hoveredAreaId = null;
                 this.renderDeckLayer(); 
             }
         });
@@ -187,31 +245,58 @@ export const MapRenderer = {
             if (this.isMacroVisible !== isVisible) {
                 this.isMacroVisible = isVisible;
                 this.renderDeckLayer();
+
+                // 👑 联动逻辑：放大进入微观层级时，隐藏宏观颜色的图例
+                const legend = document.getElementById('severity-legend');
+                if (legend) {
+                    legend.style.opacity = isVisible ? '1' : '0';
+                    legend.style.visibility = isVisible ? 'visible' : 'hidden';
+                }
             }
         });
 
-        // 微观点集群（原有的，也优化了光标逻辑）
         this.map.on('mouseenter', 'clusters', () => { this.map.getCanvas().style.cursor = 'pointer'; });
         this.map.on('mouseleave', 'clusters', () => { this.map.getCanvas().style.cursor = ''; });
-        this.map.on('click', 'clusters', async (e) => {
+        
+        // 👑 终极修复：彻底弃用容易引发重叠坐标死循环的 getClusterExpansionZoom，改为固定安全步进缩放。
+        this.map.on('click', 'clusters', (e) => {
             const features = this.map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-            const zoom = await this.map.getSource('micro-points').getClusterExpansionZoom(features[0].properties.cluster_id);
-            this.map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom });
+            if (!features.length) return;
+            
+            const currentZoom = this.map.getZoom();
+            // 每次点击固定放大 2 个层级，最大不超过 18 级。完全避开底层运算，100% 不会卡死。
+            const safeZoom = Math.min(currentZoom + 2, 18);
+            
+            this.map.easeTo({ 
+                center: features[0].geometry.coordinates, 
+                zoom: safeZoom 
+            });
         });
 
-        // 单个案件点
         this.map.on('mouseenter', 'unclustered-point', () => { this.map.getCanvas().style.cursor = 'pointer'; });
-        this.map.on('mouseleave', 'unclustered-point', () => { this.map.getCanvas().style.cursor = ''; this.popup.remove(); });
+        this.map.on('mouseleave', 'unclustered-point', () => { 
+            this.map.getCanvas().style.cursor = ''; 
+            this.popup.remove(); 
+            this.hoveredAreaId = null;
+        });
+        
         this.map.on('mousemove', 'unclustered-point', (e) => {
             const props = e.features[0].properties;
-            const html = `
-                <div style="background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; max-width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                    <strong style="color:#ef4444; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">${props.type}</strong>
-                    <div style="color:#e2e8f0; font-weight: 500; font-size: 12px; margin-bottom: 6px; line-height: 1.4;">${props.desc || 'No specific description'}</div>
-                    <div style="border-top: 1px solid #1e293b; padding-top: 6px; color:#94a3b8; font-size: 11px;">🕒 ${props.date}</div>
-                </div>
-            `;
-            this.popup.setLngLat(e.features[0].geometry.coordinates).setHTML(html).addTo(this.map);
+            const pointId = e.features[0].geometry.coordinates.join(',');
+
+            if (this.hoveredAreaId !== pointId) {
+                this.hoveredAreaId = pointId;
+                const html = `
+                    <div style="background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; max-width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <strong style="color:#ef4444; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">${props.type}</strong>
+                        <div style="color:#e2e8f0; font-weight: 500; font-size: 12px; margin-bottom: 6px; line-height: 1.4;">${props.desc || 'No specific description'}</div>
+                        <div style="border-top: 1px solid #1e293b; padding-top: 6px; color:#94a3b8; font-size: 11px;">🕒 ${props.date}</div>
+                    </div>
+                `;
+                this.popup.setHTML(html);
+            }
+            this.popup.setLngLat(e.features[0].geometry.coordinates);
+            if (!this.popup.isOpen()) this.popup.addTo(this.map);
         });
     },
     
@@ -220,7 +305,9 @@ export const MapRenderer = {
         this.currentMacroData = macroData; 
         this.map.getSource('macro-areas').setData(macroData.geoJson);
 
-        if (!macroData.isEmpty) {
+        if (macroData.isEmpty) {
+            this.map.setPaintProperty('area-fill', 'fill-color', '#5e636a');
+        } else {
             const t = macroData.thresholds;
             const colorRamp = [
                 'step', ['get', 'severity_score'],
@@ -228,6 +315,7 @@ export const MapRenderer = {
             ];
             this.map.setPaintProperty('area-fill', 'fill-color', colorRamp);
         }
+        
         this.renderDeckLayer(); 
     },
 
@@ -235,9 +323,12 @@ export const MapRenderer = {
         if (!this.deckOverlay || !this.currentMacroData) return;
 
         const data = this.currentMacroData;
+        const isEmpty = data.isEmpty; 
         const t = data.thresholds;
 
         const getColor = (score) => {
+            if (isEmpty) return [148, 163, 184]; 
+            
             if (score < t.p20) return [26, 152, 80];        
             if (score < t.p40) return [166, 217, 106];      
             if (score < t.p60) return [254, 224, 139];      
@@ -265,7 +356,7 @@ export const MapRenderer = {
                 polygon: [coords], 
                 score: f.properties.severity_score || 0,
                 color: getColor(f.properties.severity_score || 0),
-                properties: f.properties // 👈 将所有属性挂载，供 3D 接管 Hover 使用
+                properties: f.properties 
             };
         });
 
@@ -277,40 +368,46 @@ export const MapRenderer = {
             extruded: true,
             stroked: false,      
             
-            // ==========================================
-            // 👑 修复闪烁 3：赋予 3D 圆柱真实的物理碰撞体积！
-            // ==========================================
-            pickable: true,         // 允许鼠标拾取
-            autoHighlight: true,    // 神级特效：开启鼠标悬浮时的 3D 高光反馈
-            highlightColor: [255, 255, 255, 60], // 高光颜色：透明白金，极具质感
+            pickable: true,         
+            autoHighlight: true,    
+            highlightColor: [255, 255, 255, 60], 
 
             getPolygon: d => d.polygon,
-            getElevation: d => shouldShowColumns ? d.score * 120 : 0, 
+            getElevation: d => (shouldShowColumns && !isEmpty) ? d.score * 120 : 0, 
             getFillColor: d => [...d.color, shouldShowColumns ? 255 : 0], 
 
-            // 👑 3D Hover 完全接管
             onHover: (info) => {
-                if (shouldShowColumns && info.object) {
+                if (shouldShowColumns && !isEmpty && info.object) {
                     this.map.getCanvas().style.cursor = 'pointer';
-                    const html = this.createMacroPopupHtml(info.object.properties);
-                    this.popup.setLngLat(info.coordinate).setHTML(html).addTo(this.map);
+                    const props = info.object.properties;
+                    const areaId = props.area_num_1;
+
+                    if (this.hoveredAreaId !== areaId) {
+                        this.hoveredAreaId = areaId;
+                        const html = this.createMacroPopupHtml(props);
+                        this.popup.setHTML(html);
+                    }
+                    
+                    this.popup.setLngLat(info.coordinate);
+                    if (!this.popup.isOpen()) this.popup.addTo(this.map);
+                    
                 } else if (shouldShowColumns) {
                     this.map.getCanvas().style.cursor = '';
                     this.popup.remove();
+                    this.hoveredAreaId = null;
                 }
             },
 
-            // 👑 3D Click 完全接管
             onClick: (info) => {
-                if (shouldShowColumns && info.object) {
+                if (shouldShowColumns && !isEmpty && info.object) {
                     const props = info.object.properties;
                     if (this.onCommunityClick) this.onCommunityClick(parseInt(props.area_num_1), props.community || 'Unknown');
                 }
             },
 
             updateTriggers: {
-                getElevation: [this.is3DActive, this.isMacroVisible],
-                getFillColor: [this.is3DActive, this.isMacroVisible]
+                getElevation: [this.is3DActive, this.isMacroVisible, isEmpty],
+                getFillColor: [this.is3DActive, this.isMacroVisible, isEmpty]
             },
 
             material: {

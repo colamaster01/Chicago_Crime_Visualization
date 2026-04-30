@@ -10,7 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter2/1.5.4/crossfilter.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
-  
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,7 +28,21 @@
 
   <div class="dashboard-layout">
     <div class="left-panel">
-      <div id="map"></div>
+      <div id="map">
+        <div id="severity-legend" class="map-legend">
+          <h4>Severity Index</h4>
+          <div class="legend-scale">
+            <div class="legend-item"><span style="background: #d73027;"></span> Very Dangerous</div>
+            <div class="legend-item"><span style="background: #fc8d59;"></span> Dangerous</div>
+            <div class="legend-item"><span style="background: #fee08b;"></span> Normal</div>
+            <div class="legend-item"><span style="background: #a6d96a;"></span> Safe</div>
+            <div class="legend-item"><span style="background: #1a9850;"></span> Very Safe</div>
+            <div class="legend-item" style="margin-top: 4px; padding-top: 5px; border-top: 1px solid #334155;">
+              <span style="background: #5e636a; border: 1px solid #5e636a;"></span> No Data
+            </div>
+          </div>
+        </div>
+      </div>
       <div id="bottom-panel">
         <div id="year-slider-group" class="filter-group horizontal-slider">
           <label>YEAR <span id="year-label" class="highlight-text">2020 - 2026</span></label>
