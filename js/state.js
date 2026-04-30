@@ -1,7 +1,7 @@
 export const State = {
     filters: {
-        year: [2020, 2026],
-        month: [1, 12],  
+        year: [2020, 2027],  // 👑 将初始终点设为2027，保证包含 2026 所有的案件
+        month: [1, 13],      // 👑 将初始终点设为13，保证覆盖年底 (DEC 31)
         time: [0, 24], 
         crimeTypes: ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE', 'OTHER'],
         crimeWeights: {} 
@@ -21,10 +21,9 @@ export const State = {
         types.forEach(t => this.filters.crimeWeights[t] = w);
     },
 
-    // 👇 新增：专门供 UI Reset 按钮调用的重置与通知方法
     resetWeights() {
         this.initWeights();
-        this.notify('filter'); // 广播触发全图渲染
+        this.notify('filter'); 
     },
 
     updateFilter(key, valueArray) {

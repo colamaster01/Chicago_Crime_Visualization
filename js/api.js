@@ -41,13 +41,15 @@ export const API = {
                         setTimeout(() => {
                             this.cf = crossfilter(this.allData);
                             this.dims.year = this.cf.dimension(d => d.y);
-                            this.dims.month = this.cf.dimension(d => d.m);
+                            // 👑 核心突破 1：月份维度融入了天数（作为小数），使得滑块可以做连续的日期切分！
+                            this.dims.month = this.cf.dimension(d => d.m + (d.d - 1) / 31.0); 
                             this.dims.time = this.cf.dimension(d => d.h + d.min / 60.0);
                             this.dims.type = this.cf.dimension(d => d.t);
                             this.dims.ca = this.cf.dimension(d => d.ca);
 
                             this.groups.year = this.dims.year.group();
-                            this.groups.month = this.dims.month.group();
+                            // 虽然维度是连续的，但柱状图依然用 Math.floor 归类，保证完美呈现 12 根柱子
+                            this.groups.month = this.dims.month.group(d => Math.floor(d));
                             this.groups.time = this.dims.time.group(d => Math.floor(d));
                             this.groups.ca = this.dims.ca.group();
 
@@ -79,19 +81,20 @@ export const API = {
         if (allowedTypes.size === 0) this.dims.type.filter(-1); 
         else this.dims.type.filterFunction(t => allowedTypes.has(t));
 
-        if (filters.year) this.dims.year.filterRange([filters.year[0], filters.year[1] + 1]);
+        // 👑 核心突破 2：因为前端滑块现在提供的是精确的绝对边界（如2027），所以不再需要 +1
+        if (filters.year) this.dims.year.filterRange([filters.year[0], filters.year[1]]);
         else this.dims.year.filterAll();
-        if (filters.month) this.dims.month.filterRange([filters.month[0], filters.month[1] + 1]);
+        
+        if (filters.month) this.dims.month.filterRange([filters.month[0], filters.month[1]]);
         else this.dims.month.filterAll();
+        
         if (filters.time) this.dims.time.filterRange([filters.time[0], filters.time[1] + 0.001]);
         else this.dims.time.filterAll();
     },
 
-    // 👑 这里是核心修改：传入 currentZoom，但不设置任何长度上限！
     async fetchCrimes(filters, bounds, currentZoom = 20) {
         if (!this.isLoaded || !bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
         
-        // 【核心性能保护】：只要没放大到 12.5 层级，一律不组装微观点，直接返回空！0 内存消耗！
         if (currentZoom < 12.5) {
             return { type: "FeatureCollection", features: [] };
         }
@@ -113,7 +116,6 @@ export const API = {
                     date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}`
                 }
             });
-            // ✅ 没有 break，没有上限！视野里有多少，就原原本本装多少！
         }
         return { type: "FeatureCollection", features };
     },
@@ -132,7 +134,7 @@ export const API = {
         }
     
         this.updateCrossfilterState(filters);
-        const weights = filters.crimeWeights || {}; // 获取由UI传来的动态权重
+        const weights = filters.crimeWeights || {}; 
     
         const caTypeGroup = this.dims.ca.group().reduce(
             (p, d) => {
@@ -148,11 +150,10 @@ export const API = {
     
         const groupedData = caTypeGroup.all();
         const caStats = {};
-        let maxSeverity = 0; // 全局最高危险指数
+        let maxSeverity = 0; 
     
         groupedData.forEach(g => {
             let absSeverity = 0;
-            // 👑 算法：计算每个社区的绝对危险值 = Sum(数量 * 用户设置的权重)
             for (let t in g.value.types) {
                 absSeverity += g.value.types[t] * (weights[t] || 0);
             }
@@ -160,7 +161,6 @@ export const API = {
             if (absSeverity > maxSeverity) maxSeverity = absSeverity;
         });
     
-        // 排名：按严重程度排
         const rankMap = {};        
         const sortedAreas = Object.entries(caStats).sort((a, b) => b[1].severity - a[1].severity);        
         sortedAreas.forEach(([areaId, _], index) => { rankMap[areaId] = index + 1; });        
@@ -171,7 +171,6 @@ export const API = {
             const areaId = parseInt(f.properties.area_num_1);
             const stat = caStats[areaId] || { total: 0, types: {}, severity: 0 };
     
-            // 👑 归一化：将绝对危险值转换为 0-100 的标准化分数
             const score = maxSeverity > 0 ? Math.round((stat.severity / maxSeverity) * 100) : 0;
             
             f.properties.crime_count = stat.total; 

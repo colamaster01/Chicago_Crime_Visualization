@@ -3,8 +3,14 @@ import { State } from './state.js';
 const formatters = {
     year: v => Math.round(v),
     month: v => {
+        // 👑 自动解析连续的小数值为具体的月份和天数
+        let mIdx = Math.floor(v);
+        if (mIdx > 12) { mIdx = 12; v = 12.999; }
+        if (mIdx < 1) mIdx = 1;
         const m = ["", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-        return m[Math.round(v)] || Math.round(v);
+        const day = Math.floor((v - mIdx) * 31) + 1;
+        const safeDay = Math.min(day, 31);
+        return `${m[mIdx]} ${String(safeDay).padStart(2,'0')}`;
     },
     time: v => {
         let h = Math.floor(v);
@@ -23,6 +29,7 @@ export const ChartRenderer = {
         const node = container.node();
         if (!node) return;
 
+        // 统一拓展域区间，为所有的长条流出尾部空间（如 year 的 2027）
         const domainMax = (filterKey === 'time') ? maxKey : maxKey + step;
         const domainArr = d3.range(minKey, domainMax, step);
         const data = domainArr.map(k => ({ key: k, value: dataMap.get(k) || 0 }));
@@ -49,7 +56,6 @@ export const ChartRenderer = {
                 .data(data)
                 .enter().append('rect')
                 .attr('class', 'bar')
-                // 👈 【核心修改 1】：去掉了原来的 - barWidth/2，让柱子完美贴合刻度起始线，实现连续型直方图外观！
                 .attr('x', d => x(d.key)) 
                 .attr('y', d => y(d.value))
                 .attr('width', barWidth)
@@ -61,9 +67,14 @@ export const ChartRenderer = {
             if (filterKey === 'time') {
                 xAxis.tickValues(d3.range(0, 25, 3)).tickFormat(d => `${d}:00`);
             } else if (filterKey === 'month') {
-                xAxis.tickValues(d3.range(1, 13, 1)).tickFormat(d3.format("d"));
+                xAxis.tickValues(d3.range(1, 14, 1)).tickFormat(d => {
+                    if (d === 13) return ""; // 月份最右刻度隐藏
+                    const m = ["", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+                    return m[d] || "";
+                });
             } else {
-                xAxis.tickValues(d3.range(minKey, maxKey + 1, 1)).tickFormat(d3.format("d"));
+                // 👑 修复：将 Year 的刻度直接画到 domainMax (2027) 处
+                xAxis.tickValues(d3.range(minKey, domainMax + 1, 1)).tickFormat(d3.format("d"));
             }
 
             svg.append('g')
@@ -74,27 +85,49 @@ export const ChartRenderer = {
 
             const brush = d3.brushX()
                 .extent([[0, 0], [width, height]]) 
-                .on('brush end', (event) => {
+                // 改为 function(event) 便于 d3.select(this) 接管动画
+                .on('brush end', function(event) {
                     if (!event.sourceEvent) return;
 
                     let selectedRange;
                     if (!event.selection) {
-                        selectedRange = [minKey, maxKey];
-                        setTimeout(() => brushGroup.call(brush.move, [0, width]), 0);
+                        selectedRange = [minKey, domainMax];
+                        d3.select(this).transition().call(brush.move, [x(minKey), x(domainMax)]);
                     } else {
                         let [x0, x1] = event.selection.map(x.invert);
-                        if (filterKey !== 'time') {
+                        
+                        // 👑 修复：针对年份加入物理 Snap (吸附)，释放时滑块永远停在整数边界！
+                        if (filterKey === 'year') {
                             x0 = Math.round(x0);
                             x1 = Math.round(x1);
-                            if (x1 > maxKey) x1 = maxKey; 
+                            if (x0 === x1) x1 = x0 + 1; 
+                            if (x1 > domainMax) x1 = domainMax;
+                            
+                            // 只有在鼠标松开时才执行 UI 对齐动画
+                            if (event.type === 'end') {
+                                d3.select(this).transition().call(brush.move, [x(x0), x(x1)]);
+                            }
                         } else {
-                            if (x1 > maxKey) x1 = maxKey; 
+                            if (x1 > domainMax) x1 = domainMax;
                         }
+                        
                         selectedRange = [x0, x1];
-                        if (selectedRange[0] === selectedRange[1]) return; 
                     }
 
-                    d3.select(`#${filterKey}-label`).text(`${formatters[filterKey](selectedRange[0])} - ${formatters[filterKey](selectedRange[1])}`);
+                    // 👑 修复：展示完美格式化的标签文本
+                    let labelText = `${formatters[filterKey](selectedRange[0])} - ${formatters[filterKey](selectedRange[1])}`;
+                    
+                    if (filterKey === 'year') {
+                        const startY = Math.round(selectedRange[0]);
+                        const endY = Math.round(selectedRange[1]) - 1; // 2027 边界退回表示 2026
+                        labelText = startY === endY ? `${startY}` : `${startY} - ${endY}`;
+                    } else if (filterKey === 'month') {
+                        if (selectedRange[0] <= 1 && selectedRange[1] >= 13) {
+                            labelText = "JAN 01 - DEC 31"; // 全部涵盖的友好显示
+                        }
+                    }
+
+                    d3.select(`#${filterKey}-label`).text(labelText);
 
                     if (event.type === 'end') {
                         State.updateFilter(filterKey, selectedRange);
@@ -124,7 +157,6 @@ export const ChartRenderer = {
         if (!histData) return;
         this.drawBrushChart('year-chart', 'year', histData.year, 2020, 2026, 1, currentFilters);
         this.drawBrushChart('month-chart', 'month', histData.month, 1, 12, 1, currentFilters);
-        // 👈 【核心修改 2】：把这里的 step 从 0.25 改回 1，完美渲染 24 根柱子！
         this.drawBrushChart('time-chart', 'time', histData.time, 0, 24, 1, currentFilters); 
     }
 };
