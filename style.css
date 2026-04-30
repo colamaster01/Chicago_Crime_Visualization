@@ -1,213 +1,42 @@
-/* ==========================================================================
-   0. 全局防误触加载页面 (Blocking Global Loader)
-   ========================================================================== */
-#global-loader {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: #0f172a; 
-    z-index: 99999; 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.5s ease-out; 
-}
-
-.loader-content {
-    text-align: center;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    width: 300px; /* 限制一下整体宽度 */
-}
-
-/* 👇 【新增】：进度条专属样式 */
-.progress-wrapper {
-    width: 100%;
-    margin: 0 auto;
-}
-
-.progress-bar-bg {
-    width: 100%;
-    height: 8px; /* 进度条粗细 */
-    background: rgba(255, 255, 255, 0.1); /* 暗色底槽 */
-    border-radius: 4px;
-    overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.progress-bar-fill {
-    width: 0%; /* 初始宽度为0 */
-    height: 100%;
-    background: linear-gradient(90deg, #3ca0eb, #60a5fa, #93c5fd); /* 科技蓝渐变 */
-    border-radius: 4px;
-    transition: width 0.1s linear; /* 进度平滑增长动画 */
-    box-shadow: 0 0 10px rgba(96, 165, 250, 0.5); /* 微微的发光效果 */
-}
-
-/* ==========================================================================
-   1. 基础重置与 Dashboard 整体网格布局
-   ========================================================================== */
-body { 
-    margin: 0; 
-    padding: 0; 
-    font-family: 'Helvetica Neue', Arial, sans-serif; 
-    background-color: #f0f2f5; 
-    height: 100vh;
-    overflow: hidden; 
-}
-
-.dashboard-layout {
-    display: flex;
-    width: 100vw;
-    height: 100vh;
-}
-
-/* ==========================================================================
-   2. 左侧区域 (地图 4/5 + 底部时间轴 1/5)
-   ========================================================================== */
-.left-panel {
-    width: 75%; 
-    display: flex;
-    flex-direction: column;
-}
-
-#map { 
-    width: 100%; 
-    height: 80%; 
-    position: relative; 
-    border-right: 1px solid #ddd;
-}
-
-/* 底部时间轴面板 */
-#bottom-panel {
-    width: 100%;
-    height: 20%; 
-    background: #0f172a; 
-    display: flex;
-    align-items: center; 
-    justify-content: space-around; 
-    padding: 0 15px; /* 缩减内边距，释放宽度给图表 */
-    box-sizing: border-box;
-    border-right: 1px solid #1e293b;
-    border-top: 1px solid #1e293b;
-    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
-}
-
-.horizontal-slider {
-    margin: 0 0px; /* 缩减外边距，让图表贴紧 */
-    min-width: 0;
-}
-
-/* 独立控制每个图表的比例宽度 (Flex 权重) */
-#year-slider-group { flex: 2.0; }
-#month-slider-group { flex: 2.0; }
-#time-slider-group { flex: 3.5; }
-
-/* ==========================================================================
-   3. 右侧面板 (合并了 Filter 和 Legend)
-   ========================================================================== */
-.right-panel {
-    width: 25%; 
-    height: 100%;
-    background: #ffffff;
-    padding: 25px 20px;
-    box-sizing: border-box;
-    overflow-y: auto;
-    box-shadow: -2px 0 10px rgba(0,0,0,0.05); 
-    z-index: 10;
-}
-
-.panel-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #eaeaea;
-    color: #2c3e50;
-}
-
+#global-loader { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; }
+.loader-content { text-align: center; font-family: 'Helvetica Neue', Arial, sans-serif; width: 300px; }
+.progress-wrapper { width: 100%; margin: 0 auto; }
+.progress-bar-bg { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+.progress-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3ca0eb, #60a5fa, #93c5fd); border-radius: 4px; transition: width 0.1s linear; box-shadow: 0 0 10px rgba(96, 165, 250, 0.5); }
+body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; height: 100vh; overflow: hidden; }
+.dashboard-layout { display: flex; width: 100vw; height: 100vh; }
+.left-panel { width: 75%; display: flex; flex-direction: column; }
+#map { width: 100%; height: 80%; position: relative; border-right: 1px solid #ddd; }
+#bottom-panel { width: 100%; height: 20%; background: #0f172a; display: flex; align-items: center; justify-content: space-around; padding: 0 15px; box-sizing: border-box; border-right: 1px solid #1e293b; border-top: 1px solid #1e293b; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2); }
+.horizontal-slider { margin: 0 0px; min-width: 0; }
+#year-slider-group { flex: 2.0; } #month-slider-group { flex: 2.0; } #time-slider-group { flex: 3.5; }
+.right-panel { width: 25%; height: 100%; background: #ffffff; padding: 25px 20px; box-sizing: border-box; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.05); z-index: 10; }
+.panel-title { font-size: 18px; font-weight: bold; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eaeaea; color: #2c3e50; }
 .checkbox-list { display: flex; flex-direction: column; }
-
-.merged-legend-item {
-    display: flex; align-items: center;
-    font-size: 14px; color: #444; padding: 10px 8px;
-    cursor: pointer; border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.2s, transform 0.1s;
-    border-radius: 6px;
-}
-
+.merged-legend-item { display: flex; align-items: center; font-size: 14px; color: #444; padding: 10px 8px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background-color 0.2s, transform 0.1s; border-radius: 6px; }
 .merged-legend-item:hover { background-color: #f8f9fa; transform: translateX(2px); }
 .merged-legend-item input[type="checkbox"] { margin-right: 12px; width: 16px; height: 16px; cursor: pointer; }
+.legend-color { width: 14px; height: 14px; border-radius: 50%; margin-right: 12px; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: grab; }
+.legend-color:active { cursor: grabbing; }
 
-.legend-color { 
-    width: 14px; height: 14px; border-radius: 50%; 
-    margin-right: 12px; border: 1px solid #ddd; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
+.filter-group label { display: flex; align-items: baseline; font-size: 11px; font-weight: 700; margin-bottom: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+.highlight-text { color: #3ca0eb; font-weight: 600; font-size: 13px; margin-left: 8px; }
+.chart-canvas { width: 100%; }
+.brush .overlay { pointer-events: all; }
+.brush .selection { fill: #3ca0eb; fill-opacity: 0.3; stroke: #60a5fa; stroke-width: 1px; }
+.brush .handle { fill: #1e40af; }
+.axis-x text { font-size: 10px; font-weight: 500; fill: #94a3b8; }
+.axis-x path, .axis-x line { stroke: #475569; }
+.maplibregl-popup-content { background: none !important; box-shadow: none !important; padding: 0 !important; border: none !important; }
+.maplibregl-popup-tip { display: none !important; }
 
-/* ==========================================================================
-   4. 通用排版组件
-   ========================================================================== */
-.filter-group label {
-    display: flex;
-    align-items: baseline; 
-    font-size: 11px;
-    font-weight: 700;
-    margin-bottom: 8px; 
-    color: #64748b;
-    text-transform: uppercase; 
-    letter-spacing: 1px;
-}
-
-.highlight-text {
-    color: #3ca0eb;
-    font-weight: 600;
-    font-size: 13px;
-    margin-left: 8px; 
-}
-
-/* ==========================================================================
-   5. D3.js 画布与交互画刷 (Brush) 样式
-   ========================================================================== */
-.chart-canvas {
-    width: 100%;
-}
-
-.brush .overlay {
-    pointer-events: all;
-}
-
-.brush .selection {
-    fill: #3ca0eb; 
-    fill-opacity: 0.3;
-    stroke: #60a5fa; 
-    stroke-width: 1px;
-}
-
-.brush .handle {
-    fill: #1e40af;
-}
-
-.axis-x text {
-    font-size: 10px;
-    font-weight: 500;
-    fill: #94a3b8; 
-}
-
-.axis-x path, .axis-x line {
-    stroke: #475569; 
-}
-
-
-/* ==========================================================================
-   6. 去掉浮窗的白色框
-   ========================================================================== */
-/* 去掉弹窗自带的白背景、阴影和边框 */
-.maplibregl-popup-content {
-    background: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    border: none !important;
-}
-/* 去掉下面的白色小三角箭头 */
-.maplibregl-popup-tip {
-    display: none !important;
-}
+/* 👇 权重分布条专属样式 */
+.weight-bar-container { margin-bottom: 20px; }
+.weight-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.weight-bar-label { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0; }
+.reset-btn { background: none; border: none; color: #3ca0eb; cursor: pointer; font-size: 10px; font-weight: 800; padding: 0; transition: color 0.2s; letter-spacing: 0.5px; }
+.reset-btn:hover { color: #1e40af; text-decoration: underline; }
+.weight-bar { height: 16px; display: flex; width: 100%; border-radius: 8px; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+.weight-bar.drag-over { border: 2px dashed #3b82f6; background: #e0f2fe; }
+.weight-segment { transition: flex 0.15s ease-out; cursor: ns-resize; }
+.weight-segment:hover { filter: brightness(1.1); }

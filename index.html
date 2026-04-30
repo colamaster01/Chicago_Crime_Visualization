@@ -3,83 +3,77 @@
 <head>
   <meta charset="utf-8">
   <title>Chicago Crime Dashboard</title>
-  
   <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css' />
   <script src='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js'></script>
-  
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter2/1.5.4/crossfilter.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
   
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-
   <div id="global-loader">
     <div class="loader-content">
-      
-      <!-- 👇 【修改点】：把之前的 <div class="spinner"></div> 替换成下面这块 -->
       <div class="progress-wrapper">
         <div class="progress-bar-bg">
           <div id="loader-progress" class="progress-bar-fill"></div>
         </div>
       </div>
-      
       <h2 style="margin: 15px 0 5px 0; color: #fff;">System Initializing</h2>
       <p id="loader-text" style="color: #94a3b8; font-size: 14px; margin: 0;">Connecting to data stream...</p>
     </div>
   </div>
 
   <div class="dashboard-layout">
-    
-    <!-- ================== 左侧面板 (占宽 75%) ================== -->
     <div class="left-panel">
       <div id="map"></div>
-      
       <div id="bottom-panel">
-        
         <div id="year-slider-group" class="filter-group horizontal-slider">
           <label>YEAR <span id="year-label" class="highlight-text">2020 - 2026</span></label>
           <div id="year-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
-
         <div id="month-slider-group" class="filter-group horizontal-slider">
           <label>MONTH <span id="month-label" class="highlight-text">JAN - DEC</span></label>
           <div id="month-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
-
         <div id="time-slider-group" class="filter-group horizontal-slider">
           <label>TIME OF DAY <span id="time-label" class="highlight-text">00:00 - 24:00</span></label>
           <div id="time-chart" class="chart-canvas" style="height: 80px;"></div>
         </div>
-
-      </div>
-    </div> <!-- 👈 之前大概率就是丢了这一个闭合标签 -->
-
-    <!-- ================== 右侧面板 (占宽 25%) ================== -->
-    <div class="right-panel">
-      <div class="panel-title">Crime Types & Filters</div>
-      <div class="checkbox-list">
-        <label class="merged-legend-item" style="border-bottom: 2px solid #ddd; margin-bottom: 8px; font-weight: bold;">
-          <input type="checkbox" id="select-all-checkbox" checked> Select All
-        </label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="THEFT" checked><div class="legend-color" style="background: #1f77b4;"></div> Theft</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BATTERY" checked><div class="legend-color" style="background: #ff7f0e;"></div> Battery</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="CRIMINAL DAMAGE" checked><div class="legend-color" style="background: #ffbb78;"></div> Criminal Damage</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="NARCOTICS" checked><div class="legend-color" style="background: #2ca02c;"></div> Narcotics</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ASSAULT" checked><div class="legend-color" style="background: #d62728;"></div> Assault</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BURGLARY" checked><div class="legend-color" style="background: #9467bd;"></div> Burglary</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ROBBERY" checked><div class="legend-color" style="background: #8c564b;"></div> Robbery</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="MOTOR VEHICLE THEFT" checked><div class="legend-color" style="background: #e377c2;"></div> Motor Vehicle Theft</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="HOMICIDE" checked><div class="legend-color" style="background: #000000;"></div> Homicide</label>
-        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="OTHER" checked><div class="legend-color" style="background: #7f7f7f;"></div> Other</label>
       </div>
     </div>
 
-  </div>
+    <div class="right-panel">
+      <div class="panel-title">Crime Types & Filters</div>
+      
+      <div class="weight-bar-container">
+        <!-- 👇 新增：使用 flex 布局把标题和 Reset 按钮放在同一行 -->
+        <div class="weight-bar-header">
+          <div class="weight-bar-label">Severity Weight Distribution</div>
+          <button id="reset-weights-btn" class="reset-btn" title="Reset weights equally">↺ RESET</button>
+        </div>
+        <div id="weight-bar" class="weight-bar" title="Drag a color dot here, or scroll on a color to adjust weight"></div>
+      </div>
 
+      <div class="checkbox-list" id="checkbox-list-container">
+        <label class="merged-legend-item" style="border-bottom: 2px solid #ddd; margin-bottom: 8px; font-weight: bold;">
+          <input type="checkbox" id="select-all-checkbox" checked> Select All
+        </label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="THEFT" checked><div class="legend-color" style="background: #1f77b4;" draggable="true" data-type="THEFT"></div> Theft</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BATTERY" checked><div class="legend-color" style="background: #ff7f0e;" draggable="true" data-type="BATTERY"></div> Battery</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="CRIMINAL DAMAGE" checked><div class="legend-color" style="background: #ffbb78;" draggable="true" data-type="CRIMINAL DAMAGE"></div> Criminal Damage</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="NARCOTICS" checked><div class="legend-color" style="background: #2ca02c;" draggable="true" data-type="NARCOTICS"></div> Narcotics</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ASSAULT" checked><div class="legend-color" style="background: #d62728;" draggable="true" data-type="ASSAULT"></div> Assault</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="BURGLARY" checked><div class="legend-color" style="background: #9467bd;" draggable="true" data-type="BURGLARY"></div> Burglary</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="ROBBERY" checked><div class="legend-color" style="background: #8c564b;" draggable="true" data-type="ROBBERY"></div> Robbery</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="MOTOR VEHICLE THEFT" checked><div class="legend-color" style="background: #e377c2;" draggable="true" data-type="MOTOR VEHICLE THEFT"></div> Motor Vehicle Theft</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="HOMICIDE" checked><div class="legend-color" style="background: #000000;" draggable="true" data-type="HOMICIDE"></div> Homicide</label>
+        <label class="merged-legend-item"><input type="checkbox" class="crime-checkbox" value="OTHER" checked><div class="legend-color" style="background: #7f7f7f;" draggable="true" data-type="OTHER"></div> Other</label>
+      </div>
+    </div>
+  </div>
   <script type="module" src="js/main.js"></script>
 </body>
-</html> 
+</html>

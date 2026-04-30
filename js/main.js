@@ -3,7 +3,7 @@ import { UI } from './ui.js';
 import { State } from './state.js';
 import { API } from './api.js';
 import { ChartRenderer } from './chart.js'; 
-import { SankeyPanel } from './sankey.js'; // ✅ 新增
+import { SankeyPanel } from './sankey.js';
 
 document.addEventListener('DOMContentLoaded', async () => { 
     console.log("Main activating");
@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loaderText = document.getElementById('loader-text');
     
     try {
-        // 1. 等待 PapaParse 流式解析 170 万条数据 (这期间用户只能看到狂飙的数字，无法乱点)
         await API.init(); 
         
         if(loaderText) loaderText.innerText = "Rendering map and charts...";
@@ -20,13 +19,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         MapRenderer.init(() => {
             State.subscribe(async (filters, bounds, source) => {
+                
+                // 👇 每次更新时，实时捕获当前的缩放层级
+                const currentZoom = window.myMap ? window.myMap.getZoom() : 0;
+
                 if (source === 'bounds') {
-                    const microData = await API.fetchCrimes(filters, bounds);
+                    // 将 currentZoom 传给底层
+                    const microData = await API.fetchCrimes(filters, bounds, currentZoom);
                     MapRenderer.updateMicroData(microData);
                 } 
                 else {
                     const [microData, macroData, histData] = await Promise.all([
-                        API.fetchCrimes(filters, bounds),
+                        // 将 currentZoom 传给底层
+                        API.fetchCrimes(filters, bounds, currentZoom),
                         API.fetchMacroLayer(filters),
                         API.fetchHistograms(filters) 
                     ]);
@@ -35,7 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (macroData) MapRenderer.updateMacroData(macroData);
                     ChartRenderer.updateAllHistograms(histData, filters);
                     
-                    // ✅ 核心联动逻辑：如果此时用户正打开着社区详情图表，命令它实时重绘数据！
                     if (SankeyPanel.isOpen) {
                         SankeyPanel.update(filters);
                     }
@@ -56,12 +60,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             State.mapBounds = window.myMap.getBounds(); 
             State.notify('init'); 
             
-            // 👈 【核心】：所有东西都准备就绪了，开始解除封印！
             const loader = document.getElementById('global-loader');
             if (loader) {
-                // 先触发 CSS 渐隐动画，显得丝滑高级
                 loader.style.opacity = '0';
-                // 0.5秒动画播完后，把这个遮罩彻底从 DOM 树里销毁，用户可以开始操作了
                 setTimeout(() => loader.remove(), 500);
             }
         });
