@@ -3,6 +3,7 @@ import { UI } from './ui.js';
 import { State } from './state.js';
 import { API } from './api.js';
 import { ChartRenderer } from './chart.js'; 
+import { SankeyPanel } from './sankey.js'; // ✅ 新增
 
 document.addEventListener('DOMContentLoaded', async () => { 
     console.log("Main activating");
@@ -39,7 +40,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.myMap.on('moveend', () => {
                 State.updateBounds(window.myMap.getBounds());
             });
-            
+            SankeyPanel.init();
+
+            MapRenderer.onCommunityClick = (areaId, communityName) => {
+                const filters = State.currentFilters; // 确保你的 State 里有暴露当前 filters
+                
+                SankeyPanel.open(areaId, communityName, State.filters);
+            };
             State.mapBounds = window.myMap.getBounds(); 
             State.notify('init'); 
             

@@ -149,7 +149,7 @@ export const API = {
                 properties: { 
                     type: this.mappings.types[d.t] || 'UNKNOWN',
                     desc: this.mappings.descriptions[d.desc] || '',
-                    date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}:00` 
+                    date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}`
                 }
             });
         }
@@ -158,42 +158,87 @@ export const API = {
 
     async fetchMacroLayer(filters) {
         if (!this.isLoaded) return null;
-
+    
         if (!window.cachedCommunityGeoJson) {
             const geoRes = await fetch('https://data.cityofchicago.org/resource/igwz-8jzy.geojson');
             window.cachedCommunityGeoJson = await geoRes.json();
         }
         const geoJson = JSON.parse(JSON.stringify(window.cachedCommunityGeoJson));
-
+    
         if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
             geoJson.features.forEach(f => f.properties.crime_count = 0);
             return { geoJson, thresholds: { p20: 1, p40: 2, p60: 3, p80: 4 }, isEmpty: true };
         }
-
+    
         this.updateCrossfilterState(filters);
-        const groupedData = this.groups.ca.all(); 
-        
-        const caCounts = {};
-        groupedData.forEach(g => { caCounts[g.key] = g.value; });
-
+    
+        // ✅ 新增：按社区做带犯罪类型细分的 reduce 分组
+        const caTypeGroup = this.dims.ca.group().reduce(
+            // add
+            (p, d) => {
+                const typeName = this.mappings.types[d.t] || 'UNKNOWN';
+                p.total++;
+                p.types[typeName] = (p.types[typeName] || 0) + 1;
+                return p;
+            },
+            // remove
+            (p, d) => {
+                const typeName = this.mappings.types[d.t] || 'UNKNOWN';
+                p.total--;
+                p.types[typeName] = (p.types[typeName] || 0) - 1;
+                return p;
+            },
+            // init
+            () => ({ total: 0, types: {} })
+        );
+    
+        const groupedData = caTypeGroup.all();
+    
+        const caStats = {};
+        groupedData.forEach(g => {
+            caStats[g.key] = g.value; // { total, types }
+        });
+    
         const countsArray = [];
+        //加了ranking
+        const rankMap = {};        // ✅ 新增
+        const sortedAreas = Object.entries(caStats)        // ✅ 新增
+            .sort((a, b) => b[1].total - a[1].total);        // ✅ 新增
+        sortedAreas.forEach(([areaId, _], index) => {        // ✅ 新增
+            rankMap[areaId] = index + 1;        // ✅ 新增
+        });        // ✅ 新增
+        const totalAreas = sortedAreas.length;
         geoJson.features.forEach(f => {
             const areaId = parseInt(f.properties.area_num_1);
-            const count = caCounts[areaId] || 0;
-            f.properties.crime_count = count;
-            if (count > 0) countsArray.push(count);
+            const stat = caStats[areaId] || { total: 0, types: {} };
+    
+            f.properties.crime_count = stat.total;
+            f.properties.rank = rankMap[areaId] || null;         // ✅ 新增
+            f.properties.total_areas = totalAreas;               // ✅ 新增
+    
+            // ✅ 把 top5 直接算好挂上去
+            const top5 = Object.entries(stat.types)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([type, count]) => ({ type, count }));
+            f.properties.top_crimes_json = JSON.stringify(top5);
+    
+            if (stat.total > 0) countsArray.push(stat.total);
         });
-
+    
+        // ✅ 用完立刻释放，避免内存泄漏
+        caTypeGroup.dispose();
+    
         countsArray.sort((a, b) => a - b);
         let p20 = countsArray[Math.floor(countsArray.length * 0.2)] || 1;
         let p40 = countsArray[Math.floor(countsArray.length * 0.4)] || 2;
         let p60 = countsArray[Math.floor(countsArray.length * 0.6)] || 3;
         let p80 = countsArray[Math.floor(countsArray.length * 0.8)] || 4;
-
+    
         if (p40 <= p20) p40 = p20 + 1;
         if (p60 <= p40) p60 = p40 + 1;
         if (p80 <= p60) p80 = p60 + 1;
-
+    
         return { geoJson, thresholds: { p20, p40, p60, p80 }, isEmpty: countsArray.length === 0 };
     },
 
@@ -215,5 +260,78 @@ export const API = {
             month: cfGroupToMap(this.groups.month), 
             time: cfGroupToMap(this.groups.time) // 👈 【修改点】
         };
-    }
+    },
+    /////新增桑基图
+    async fetchSankey(areaId, filters) {
+        if (!this.isLoaded) return null;
+
+        console.log('fetchSankey called', { areaId, filters });
+        console.log('isLoaded:', this.isLoaded);
+    
+        this.updateCrossfilterState(filters);
+    
+        // 临时加一个社区维度的过滤
+        this.dims.ca.filterExact(areaId);
+    
+        // 用 type 维度做 reduce，统计每个犯罪类型 × 时间段的数量
+        const typeTimeGroup = this.dims.type.group().reduce(
+            (p, d) => {
+                const slot = d.h < 6 ? 'Late Night' : d.h < 12 ? 'Morning' : d.h < 18 ? 'Afternoon' : 'Night';
+                p[slot] = (p[slot] || 0) + 1;
+                return p;
+            },
+            (p, d) => {
+                const slot = d.h < 6 ? 'Late Night' : d.h < 12 ? 'Morning' : d.h < 18 ? 'Afternoon' : 'Night';
+                p[slot] = (p[slot] || 0) - 1;
+                return p;
+            },
+            () => ({ 'Late Night': 0, 'Morning': 0, 'Afternoon': 0, 'Night': 0 })
+        );
+    
+        const raw = typeTimeGroup.all();
+    
+        // 整理成桑基图需要的 nodes + links 格式
+        const TIME_SLOTS = ['Late Night', 'Morning', 'Afternoon', 'Night'];
+        
+        const nodes = [];
+        const links = [];
+        const nodeIndex = {};
+    
+        // 先把时间段作为右侧节点注册好
+        TIME_SLOTS.forEach(slot => {
+            nodeIndex[slot] = nodes.length;
+            nodes.push({ name: slot });
+        });
+    
+        // 遍历每个犯罪类型
+        raw.forEach(g => {
+            const typeName = this.mappings.types[g.key] || 'UNKNOWN';
+            const total = Object.values(g.value).reduce((a, b) => a + b, 0);
+            if (total === 0) return; // 过滤掉本社区没有的犯罪类型
+    
+            // 注册犯罪类型节点（左侧）
+            if (nodeIndex[typeName] === undefined) {
+                nodeIndex[typeName] = nodes.length;
+                nodes.push({ name: typeName });
+            }
+    
+            // 为每个时间段生成一条 link
+            TIME_SLOTS.forEach(slot => {
+                const value = g.value[slot] || 0;
+                if (value > 0) {
+                    links.push({
+                        source: nodeIndex[typeName],
+                        target: nodeIndex[slot],
+                        value
+                    });
+                }
+            });
+        });
+    
+        // 清理：还原 ca 过滤，销毁临时分组
+        this.dims.ca.filterAll(); // ⚠️ 重要：用完必须还原，否则影响其他查询
+        typeTimeGroup.dispose();  // ⚠️ 重要：释放内存
+    
+        return { nodes, links, areaId };
+    },
 };

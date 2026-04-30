@@ -195,3 +195,19 @@ body {
 .axis-x path, .axis-x line {
     stroke: #475569; 
 }
+
+
+/* ==========================================================================
+   6. 去掉浮窗的白色框
+   ========================================================================== */
+/* 去掉弹窗自带的白背景、阴影和边框 */
+.maplibregl-popup-content {
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border: none !important;
+}
+/* 去掉下面的白色小三角箭头 */
+.maplibregl-popup-tip {
+    display: none !important;
+}
