@@ -264,16 +264,14 @@ export const API = {
     /////新增桑基图
     async fetchSankey(areaId, filters) {
         if (!this.isLoaded) return null;
-
-        console.log('fetchSankey called', { areaId, filters });
-        console.log('isLoaded:', this.isLoaded);
     
         this.updateCrossfilterState(filters);
-    
+        
         // 临时加一个社区维度的过滤
         this.dims.ca.filterExact(areaId);
     
-        // 用 type 维度做 reduce，统计每个犯罪类型 × 时间段的数量
+        // 这里的 reduce 不受时间过滤影响，因为时间过滤在 dims.time 上，
+        // 完美保留了 Crossfilter 的联动能力（0-7点时，只剩下6个小时的数据进入 reduce）
         const typeTimeGroup = this.dims.type.group().reduce(
             (p, d) => {
                 const slot = d.h < 6 ? 'Late Night' : d.h < 12 ? 'Morning' : d.h < 18 ? 'Afternoon' : 'Night';
@@ -289,39 +287,37 @@ export const API = {
         );
     
         const raw = typeTimeGroup.all();
-    
-        // 整理成桑基图需要的 nodes + links 格式
-        const TIME_SLOTS = ['Late Night', 'Morning', 'Afternoon', 'Night'];
         
+        // 👈 【核心修复 1】：获取当前右侧复选框勾选了哪些案件类型
+        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+    
         const nodes = [];
         const links = [];
         const nodeIndex = {};
     
-        // 先把时间段作为右侧节点注册好
-        TIME_SLOTS.forEach(slot => {
-            nodeIndex[slot] = nodes.length;
-            nodes.push({ name: slot });
-        });
-    
-        // 遍历每个犯罪类型
-        raw.forEach(g => {
-            const typeName = this.mappings.types[g.key] || 'UNKNOWN';
-            const total = Object.values(g.value).reduce((a, b) => a + b, 0);
-            if (total === 0) return; // 过滤掉本社区没有的犯罪类型
-    
-            // 注册犯罪类型节点（左侧）
-            if (nodeIndex[typeName] === undefined) {
-                nodeIndex[typeName] = nodes.length;
-                nodes.push({ name: typeName });
+        // 👈 【核心修复 2】：动态获取/创建节点，没数据的节点根本不会被创建！
+        const getNodeIndex = (name) => {
+            if (nodeIndex[name] === undefined) {
+                nodeIndex[name] = nodes.length;
+                nodes.push({ name });
             }
+            return nodeIndex[name];
+        };
     
-            // 为每个时间段生成一条 link
+        raw.forEach(g => {
+            // 👈 【核心修复 3】：手动拦截被用户在右侧面板取消勾选的犯罪类型
+            if (!allowedTypes.has(g.key)) return; 
+            
+            const typeName = this.mappings.types[g.key] || 'UNKNOWN';
+            const TIME_SLOTS = ['Late Night', 'Morning', 'Afternoon', 'Night'];
+    
             TIME_SLOTS.forEach(slot => {
                 const value = g.value[slot] || 0;
+                // 只有当流量 > 0 时，才生成 link 和 node
                 if (value > 0) {
                     links.push({
-                        source: nodeIndex[typeName],
-                        target: nodeIndex[slot],
+                        source: getNodeIndex(typeName),
+                        target: getNodeIndex(slot),
                         value
                     });
                 }
@@ -329,8 +325,8 @@ export const API = {
         });
     
         // 清理：还原 ca 过滤，销毁临时分组
-        this.dims.ca.filterAll(); // ⚠️ 重要：用完必须还原，否则影响其他查询
-        typeTimeGroup.dispose();  // ⚠️ 重要：释放内存
+        this.dims.ca.filterAll(); 
+        typeTimeGroup.dispose();  
     
         return { nodes, links, areaId };
     },

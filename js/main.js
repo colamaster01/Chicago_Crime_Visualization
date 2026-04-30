@@ -34,19 +34,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     MapRenderer.updateMicroData(microData);
                     if (macroData) MapRenderer.updateMacroData(macroData);
                     ChartRenderer.updateAllHistograms(histData, filters);
+                    
+                    // ✅ 核心联动逻辑：如果此时用户正打开着社区详情图表，命令它实时重绘数据！
+                    if (SankeyPanel.isOpen) {
+                        SankeyPanel.update(filters);
+                    }
                 }
             });
 
             window.myMap.on('moveend', () => {
                 State.updateBounds(window.myMap.getBounds());
             });
+            
             SankeyPanel.init();
 
             MapRenderer.onCommunityClick = (areaId, communityName) => {
-                const filters = State.currentFilters; // 确保你的 State 里有暴露当前 filters
-                
-                SankeyPanel.open(areaId, communityName, State.filters);
+                const filters = State.filters; 
+                SankeyPanel.open(areaId, communityName, filters);
             };
+            
             State.mapBounds = window.myMap.getBounds(); 
             State.notify('init'); 
             
