@@ -75,61 +75,93 @@
         <div id="weight-bar" class="weight-bar" title="Drag a color dot here, or scroll on a color to adjust weight"></div>
       </div>
 
-      <div class="checkbox-list" id="checkbox-list-container">
-        <!-- 👑 新增 id="select-all-label" 供 CSS 绝对定位锁死头部 -->
+      <!-- 👑 修改为 legend-row 包裹结构，允许高自由度的展开操作 -->
+      <div class="checkbox-list" id="checkbox-list-container" style="height: 485px;">
         <label id="select-all-label" class="merged-legend-item" style="font-weight: bold; color: #f8fafc;">
           <input type="checkbox" id="select-all-checkbox" checked> Select All
         </label>
       
-        <label class="merged-legend-item" data-type="THEFT">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="THEFT" checked><div class="legend-color" style="background:#1f77b4;" draggable="true" data-type="THEFT"></div><span>THEFT</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#1f77b4;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="THEFT">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="THEFT" checked><div class="legend-color" style="background:#1f77b4;" draggable="true" data-type="THEFT"></div><span>THEFT</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#1f77b4;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="BATTERY">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="BATTERY" checked><div class="legend-color" style="background:#ff7f0e;" draggable="true" data-type="BATTERY"></div><span>BATTERY</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#ff7f0e;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="BATTERY">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="BATTERY" checked><div class="legend-color" style="background:#ff7f0e;" draggable="true" data-type="BATTERY"></div><span>BATTERY</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#ff7f0e;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="CRIMINAL DAMAGE">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="CRIMINAL DAMAGE" checked><div class="legend-color" style="background:#ffbb78;" draggable="true" data-type="CRIMINAL DAMAGE"></div><span>CRIMINAL DAMAGE</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#ffbb78;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="CRIMINAL DAMAGE">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="CRIMINAL DAMAGE" checked><div class="legend-color" style="background:#ffbb78;" draggable="true" data-type="CRIMINAL DAMAGE"></div><span>CRIMINAL DAMAGE</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#ffbb78;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="NARCOTICS">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="NARCOTICS" checked><div class="legend-color" style="background:#2ca02c;" draggable="true" data-type="NARCOTICS"></div><span>NARCOTICS</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#2ca02c;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="NARCOTICS">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="NARCOTICS" checked><div class="legend-color" style="background:#2ca02c;" draggable="true" data-type="NARCOTICS"></div><span>NARCOTICS</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#2ca02c;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="ASSAULT">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="ASSAULT" checked><div class="legend-color" style="background:#d62728;" draggable="true" data-type="ASSAULT"></div><span>ASSAULT</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#d62728;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="ASSAULT">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="ASSAULT" checked><div class="legend-color" style="background:#d62728;" draggable="true" data-type="ASSAULT"></div><span>ASSAULT</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#d62728;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="BURGLARY">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="BURGLARY" checked><div class="legend-color" style="background:#9467bd;" draggable="true" data-type="BURGLARY"></div><span>BURGLARY</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#9467bd;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="BURGLARY">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="BURGLARY" checked><div class="legend-color" style="background:#9467bd;" draggable="true" data-type="BURGLARY"></div><span>BURGLARY</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#9467bd;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="ROBBERY">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="ROBBERY" checked><div class="legend-color" style="background:#8c564b;" draggable="true" data-type="ROBBERY"></div><span>ROBBERY</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#8c564b;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="ROBBERY">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="ROBBERY" checked><div class="legend-color" style="background:#8c564b;" draggable="true" data-type="ROBBERY"></div><span>ROBBERY</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#8c564b;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="MOTOR VEHICLE THEFT">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="MOTOR VEHICLE THEFT" checked><div class="legend-color" style="background:#e377c2;" draggable="true" data-type="MOTOR VEHICLE THEFT"></div><span>MOTOR VEHICLE THEFT</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#e377c2;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="MOTOR VEHICLE THEFT">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="MOTOR VEHICLE THEFT" checked><div class="legend-color" style="background:#e377c2;" draggable="true" data-type="MOTOR VEHICLE THEFT"></div><span>MOTOR VEHICLE THEFT</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#e377c2;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="HOMICIDE">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="HOMICIDE" checked><div class="legend-color" style="background:#00ffff;" draggable="true" data-type="HOMICIDE"></div><span>HOMICIDE</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#00ffff;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <div class="legend-row" data-type="HOMICIDE">
+            <label class="merged-legend-item">
+              <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="HOMICIDE" checked><div class="legend-color" style="background:#00ffff;" draggable="true" data-type="HOMICIDE"></div><span>HOMICIDE</span></div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#00ffff;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+        </div>
       
-        <label class="merged-legend-item" data-type="OTHER">
-          <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="OTHER" checked><div class="legend-color" style="background:#7f7f7f;" draggable="true" data-type="OTHER"></div><span>OTHER</span></div>
-          <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#7f7f7f;"></div></div><span class="legend-count-num">—</span></div>
-        </label>
+        <!-- 👑 核心改造：给 OTHER 加上了专属的折叠箭头和装载子菜单的容器 -->
+        <div class="legend-row" data-type="OTHER" id="other-row">
+            <label class="merged-legend-item">
+              <div class="legend-item-left">
+                  <!-- 交互箭头 -->
+                  <div id="other-toggle" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:16px; height:16px; margin-right:4px;">
+                      <svg id="other-toggle-icon" viewBox="0 0 24 24" stroke="var(--text-tertiary)" stroke-width="3" fill="none" style="width:10px; height:10px; transition:0.3s; pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </div>
+                  <input type="checkbox" class="crime-checkbox" value="OTHER" checked id="other-checkbox-main">
+                  <div class="legend-color" style="background:#7f7f7f;" draggable="true" data-type="OTHER"></div>
+                  <span>OTHER</span>
+              </div>
+              <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#7f7f7f;"></div></div><span class="legend-count-num">—</span></div>
+            </label>
+            <!-- 子菜单容器 -->
+            <div id="other-sub-list" style="display:none; flex-direction:column; background:rgba(0,0,0,0.15); border-top:1px solid rgba(30,58,95,0.4); padding-bottom:6px;">
+            </div>
+        </div>
       </div>
 
     </div>

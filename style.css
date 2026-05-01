@@ -67,7 +67,7 @@ body {
 
 /* ---------- 核心布局 ---------- */
 .dashboard-layout { display: flex; width: 100vw; height: calc(100vh - 40px); }
-.left-panel { width: 75%; display: flex; flex-direction: column; position: relative; }
+.left-panel { width: 75%; display: flex; flex-direction: column; position: relative; } 
 #map { width: 100%; height: 80%; position: relative; border-right: 1px solid var(--border-subtle); background: var(--bg-base); }
 #map::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 55% 45%, rgba(60, 160, 235, 0.04) 0%, transparent 65%); z-index: 1; }
 
@@ -97,14 +97,13 @@ body {
 .panel-title::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 40%; height: 1px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 
 /* ==========================================================
-   👑 D3 排版系统核心 
+   👑 D3 排版系统核心与子菜单扩展
    ========================================================== */
 .checkbox-list { 
   position: relative;
-  height: 485px; 
+  /* 去掉 fixed height，交由 D3 动态注入 height 以便触发右侧面板本身的滚动条 */
   border: 1px solid var(--border-glow); 
   border-radius: 8px; 
-  overflow: hidden; 
   background: rgba(13, 24, 41, 0.4); 
   width: 100%; 
 }
@@ -121,26 +120,37 @@ body {
   display: flex; align-items: center; justify-content: flex-start;
 }
 
-.merged-legend-item[data-type] {
+/* 👑 D3 动态排版外壳：取消固高，允许其被子内容撑开 */
+.legend-row[data-type] {
   position: absolute;
   left: 0; right: 0;
-  height: 44px;
-  padding: 0 12px;
   margin: 0;
-  border-bottom: 1px solid rgba(30, 58, 95, 0.4);
-  transition: background 0.2s, border-left-color 0.2s, color 0.2s, box-shadow 0.2s; 
 }
 
 .merged-legend-item { 
   display: flex; align-items: center; justify-content: space-between; 
+  height: 44px; /* 单个主标签锁死高 44px */
+  padding: 0 12px;
   font-size: 11px; font-weight: 500; color: var(--text-secondary); 
   cursor: pointer; 
   border-left: 2px solid transparent; 
+  border-bottom: 1px solid rgba(30, 58, 95, 0.4);
+  transition: background 0.2s, border-left-color 0.2s, color 0.2s, box-shadow 0.2s; 
 }
-
 .merged-legend-item:hover { background: var(--bg-glass-light); border-left-color: var(--accent); color: var(--text-bright); box-shadow: inset 0 0 12px rgba(60, 160, 235, 0.05); }
 
-.legend-item-left { display: flex; align-items: center; flex-shrink: 0; width: 135px; }
+/* 👑 OTHER 下拉子菜单样式：首行缩进 */
+.sub-legend-item {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 34px; 
+  padding-left: 36px; /* 极强的缩进感，清晰展示归属关系 */
+  padding-right: 12px;
+  border-bottom: 1px dashed rgba(30, 58, 95, 0.3);
+}
+.sub-legend-item:last-child { border-bottom: none; }
+.sub-legend-item input[type="checkbox"] { pointer-events: none; opacity: 0.6; }
+
+.legend-item-left { display: flex; align-items: center; flex-shrink: 0; width: 140px; }
 .legend-item-left span { flex: 1; white-space: normal; word-break: break-word; line-height: 1.1; text-transform: uppercase; font-size: 10px; font-weight: 700; color: var(--text-bright); }
 
 .legend-count-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; justify-content: flex-end; }
@@ -178,7 +188,7 @@ body {
 .weight-segment:hover { filter: brightness(1.2) saturate(1.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); z-index: 2; }
 
 /* ==========================================================
-   👑 地图悬浮图例 (更新了位移动画)
+   👑 地图悬浮图例 (位移动画已完美同步)
    ========================================================== */
 .map-legend {
   position: absolute; bottom: 22px; left: 16px; background: var(--bg-glass);
@@ -186,13 +196,10 @@ body {
   color: var(--text-white); padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-glow); font-size: 11px; 
   z-index: 10;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(60,160,235,0.08); 
-  /* 加入 transform 的过渡，曲线与 Sankey 滑出动画同频 */
   transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 👑 Sankey 面板打开时的让位类 */
 .map-legend.shifted-by-sankey {
-  /* 380px 是面板宽度，滑动这距离刚好将图例紧贴在面板右侧 */
   transform: translateX(380px);
 }
 

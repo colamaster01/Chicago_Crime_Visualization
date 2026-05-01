@@ -78,8 +78,6 @@ export const API = {
 
     updateCrossfilterState(filters) {
         const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
-        
-        // 👑 恢复此处的判定：如果一个类别都没选，使用 filter(-1) 彻底屏蔽地图和底部时间轴图表的数据
         if (allowedTypes.size === 0) this.dims.type.filter(-1); 
         else this.dims.type.filterFunction(t => allowedTypes.has(t));
 
@@ -94,12 +92,8 @@ export const API = {
     },
 
     async fetchCrimes(filters, bounds, currentZoom = 20) {
-        // 无类型选中时，提前阻断，地图不画点
         if (!this.isLoaded || !bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
-        
-        if (currentZoom < 12.5) {
-            return { type: "FeatureCollection", features: [] };
-        }
+        if (currentZoom < 12.5) return { type: "FeatureCollection", features: [] };
 
         this.updateCrossfilterState(filters);
         const filteredRecords = this.dims.type.top(Infinity); 
@@ -130,7 +124,6 @@ export const API = {
         }
         const geoJson = JSON.parse(JSON.stringify(window.cachedCommunityGeoJson));
     
-        // 👑 无类型选中时，提前阻断，渲染灰色底图
         if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
             geoJson.features.forEach(f => { f.properties.crime_count = 0; f.properties.severity_score = 0; });
             return { geoJson, thresholds: { p20: 1, p40: 2, p60: 3, p80: 4 }, isEmpty: true };
@@ -154,11 +147,15 @@ export const API = {
         const groupedData = caTypeGroup.all();
         const caStats = {};
         let maxSeverity = 0; 
+        
+        const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
     
         groupedData.forEach(g => {
             let absSeverity = 0;
             for (let t in g.value.types) {
-                absSeverity += g.value.types[t] * (weights[t] || 0);
+                // 👑 终极修复：如果遇到原始案件名不在明单里，强制向权重字典索要 'OTHER' 的权重配额！
+                const weightKey = explicitTypes.includes(t) ? t : 'OTHER';
+                absSeverity += g.value.types[t] * (weights[weightKey] || 0);
             }
             caStats[g.key] = { total: g.value.total, types: g.value.types, severity: absSeverity };
             if (absSeverity > maxSeverity) maxSeverity = absSeverity;
@@ -206,9 +203,8 @@ export const API = {
     },
 
     async fetchHistograms(filters) {
-        if (!this.isLoaded) return { year: new Map(), month: new Map(), time: new Map(), typeCounts: {} };
+        if (!this.isLoaded) return { year: new Map(), month: new Map(), time: new Map(), typeCounts: {}, subTypeCounts: {} };
         
-        // 这一步确保时间滑块的值生效到交叉过滤器中
         this.updateCrossfilterState(filters);
         
         const cfGroupToMap = (group) => {
@@ -217,34 +213,32 @@ export const API = {
             return map;
         };
 
-        // 👑 统计案件类型 (利用 Crossfilter 机制，该统计只受时间影响，不受自身是否选中影响)
         const typeCounts = {};
+        const subTypeCounts = {}; 
         const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
         
         this.groups.type.all().forEach(({ key, value }) => {
             const name = this.mappings.types[key];
             if (name) {
-                const displayName = explicitTypes.includes(name) ? name : 'OTHER';
-                typeCounts[displayName] = (typeCounts[displayName] || 0) + value;
+                if (explicitTypes.includes(name)) {
+                    typeCounts[name] = (typeCounts[name] || 0) + value;
+                } else {
+                    typeCounts['OTHER'] = (typeCounts['OTHER'] || 0) + value;
+                    if (value > 0) subTypeCounts[name] = value; 
+                }
             }
         });
 
-        // 👑 如果没有选中任何案件，地图和时间轴图表强制返回空 Map 清空视觉
-        // 但是保留 typeCounts，让右侧的 D3 面板正常呈现全局数据基准！
         if (!filters.crimeTypes || filters.crimeTypes.length === 0) {
-            return { 
-                year: new Map(), 
-                month: new Map(), 
-                time: new Map(), 
-                typeCounts 
-            };
+            return { year: new Map(), month: new Map(), time: new Map(), typeCounts, subTypeCounts };
         }
 
         return { 
             year: cfGroupToMap(this.groups.year), 
             month: cfGroupToMap(this.groups.month), 
             time: cfGroupToMap(this.groups.time),
-            typeCounts 
+            typeCounts,
+            subTypeCounts 
         };
     },
 
@@ -260,7 +254,8 @@ export const API = {
         );
     
         const raw = typeTimeGroup.all();
-        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        const allowedTypesSet = this.getAllowedTypeIds(filters.crimeTypes);
+        const hasTypesFilter = allowedTypesSet.size > 0;
         const nodes = [], links = [], nodeIndex = {};
     
         const getNodeIndex = (name) => {
@@ -269,7 +264,7 @@ export const API = {
         };
     
         raw.forEach(g => {
-            if (!allowedTypes.has(g.key)) return; 
+            if (hasTypesFilter && !allowedTypesSet.has(g.key)) return; 
             const typeName = this.mappings.types[g.key] || 'UNKNOWN';
             ['Late Night', 'Morning', 'Afternoon', 'Night'].forEach(slot => {
                 const value = g.value[slot] || 0;
