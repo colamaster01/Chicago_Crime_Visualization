@@ -31,17 +31,32 @@ export const UI = {
                 const seg = document.createElement('div');
                 seg.className = 'weight-segment';
                 
+                // 👑 赋予其可拖拽能力
+                seg.draggable = true;
+                seg.setAttribute('data-type', type);
+                
                 const color = State.explicitTypes.includes(type) ? (State.typeColors[type] || '#ffffff') : (State.typeColors['OTHER'] || '#7f7f7f');
                 seg.style.backgroundColor = color;
                 seg.style.flex = weights[type]; 
                 
                 const pct = (weights[type] * 100).toFixed(1);
-                seg.title = `${type}: ${pct}% (Hover & Scroll to adjust weight)`;
+                seg.title = `${type}: ${pct}% (Scroll to adjust weight, Drag out to remove)`;
                 
                 seg.addEventListener('wheel', (e) => {
                     e.preventDefault(); 
                     const delta = e.deltaY < 0 ? 0.05 : -0.05; 
                     State.updateSingleWeight(type, delta);
+                });
+
+                // 👑 拖拽移出事件
+                seg.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', type);
+                    e.dataTransfer.setData('source', 'weight-bar'); // 标记来源
+                    document.body.classList.add('drag-active-remove'); // 触发删除警示特效
+                });
+                
+                seg.addEventListener('dragend', () => {
+                    document.body.classList.remove('drag-active-remove');
                 });
                 
                 bar.appendChild(seg);
@@ -67,11 +82,10 @@ export const UI = {
         });
 
         // --- 2. 处理颜色选择器 ---
-        // 👑 改造：让隐藏的 color input 随时跟着鼠标走，实现“原地弹出”
         const colorInput = document.createElement('input');
         colorInput.type = 'color';
         colorInput.style.position = 'absolute';
-        colorInput.style.opacity = '0'; // 看不见但占位置
+        colorInput.style.opacity = '0'; 
         colorInput.style.pointerEvents = 'none';
         colorInput.style.zIndex = '9999';
         document.body.appendChild(colorInput);
@@ -85,7 +99,6 @@ export const UI = {
                     currentColorType = type;
                     colorInput.value = State.typeColors[type] || '#ffffff';
                     
-                    // 👑 把输入框挪到点击的位置再触发
                     colorInput.style.left = e.clientX + 'px';
                     colorInput.style.top = e.clientY + 'px';
                     colorInput.click(); 
@@ -118,10 +131,8 @@ export const UI = {
                 e.dataTransfer.setData('is-sub-item', isSubItem.toString());
                 
                 if (isSubItem) {
-                    // 如果拖拽的是小类，全局地图区域和列表区高亮提示“可释放升维”
                     document.body.classList.add('drag-active-pull-out-global');
                 } else {
-                    // 如果拖拽的是大类，高亮 OTHER 和 加权条
                     const otherRow = document.getElementById('other-row');
                     if(otherRow) otherRow.classList.add('drag-active-drop-in');
                     if(weightBar) weightBar.classList.add('drag-over');
@@ -129,11 +140,10 @@ export const UI = {
             }
         });
 
-        // 👑 自动滚动逻辑 (Auto-Scroll)
+        // 自动滚动逻辑
         container.addEventListener('dragover', (e) => {
             e.preventDefault();
             
-            // 计算鼠标相对于滚动容器(right-panel)上下的距离
             const rightPanel = document.querySelector('.right-panel');
             if(!rightPanel) return;
             
@@ -141,15 +151,13 @@ export const UI = {
             const topDist = e.clientY - rect.top;
             const bottomDist = rect.bottom - e.clientY;
             
-            const edgeThreshold = 60; // 距离边缘 60px 开始滚动
+            const edgeThreshold = 60; 
 
             if (autoScrollInterval) clearInterval(autoScrollInterval);
 
             if (topDist < edgeThreshold) {
-                // 向上滚
                 autoScrollInterval = setInterval(() => { rightPanel.scrollTop -= 10; }, 20);
             } else if (bottomDist < edgeThreshold) {
-                // 向下滚
                 autoScrollInterval = setInterval(() => { rightPanel.scrollTop += 10; }, 20);
             }
         });
@@ -157,28 +165,45 @@ export const UI = {
         document.body.addEventListener('dragend', () => {
             if (autoScrollInterval) clearInterval(autoScrollInterval);
             document.body.classList.remove('drag-active-pull-out-global');
+            document.body.classList.remove('drag-active-remove');
             
             const otherRow = document.getElementById('other-row');
             if(otherRow) otherRow.classList.remove('drag-active-drop-in');
             if(weightBar) weightBar.classList.remove('drag-over');
         });
 
-        // 👑 全局释放监听 (document.body)
+        // 全局释放监听 (document.body)
         document.body.addEventListener('dragover', (e) => { e.preventDefault(); });
 
         document.body.addEventListener('drop', (e) => {
             e.preventDefault();
             if (autoScrollInterval) clearInterval(autoScrollInterval);
             document.body.classList.remove('drag-active-pull-out-global');
+            document.body.classList.remove('drag-active-remove');
             
             const type = e.dataTransfer.getData('text/plain');
             if (!type) return;
 
+            const source = e.dataTransfer.getData('source');
+            
+            // 👑 处理从加权条拖出（取消勾选删除）
+            if (source === 'weight-bar') {
+                // 只要释放点不是在加权条内部，就视为丢弃
+                if (!e.target.closest('#weight-bar')) {
+                    const cb = document.querySelector(`.crime-checkbox[value="${type}"]`);
+                    if (cb && cb.checked) {
+                        cb.checked = false;
+                        const selectAllBox = document.getElementById('select-all-checkbox');
+                        if (selectAllBox) selectAllBox.checked = false;
+                        this.updateStateFromCheckboxes();
+                    }
+                }
+                return;
+            }
+
             const isSubItem = e.dataTransfer.getData('is-sub-item') === 'true';
 
-            // 1. 如果是从 OTHER 拖出的小类
             if (isSubItem) {
-                // 只要释放点不是在 OTHER 内部，全部视为升维
                 if (!e.target.closest('#other-row')) {
                     State.promoteToExplicit(type);
                     setTimeout(() => {
@@ -190,17 +215,17 @@ export const UI = {
                     }, 50);
                 }
             } 
-            // 2. 如果是本来就在外面的大类
             else {
-                // 情况A：释放到 OTHER 行里 -> 降维
                 if (e.target.closest('#other-row')) {
                     State.demoteToOther(type);
                 } 
-                // 情况B：释放到 Weight Bar 里 -> 恢复勾选并可能需要增加权重（原逻辑保留）
                 else if (e.target.closest('#weight-bar')) {
                     const cb = document.querySelector(`.crime-checkbox[value="${type}"]`);
                     if (cb && !cb.checked) {
                         cb.checked = true;
+                        const checkboxes = document.querySelectorAll('.crime-checkbox');
+                        const selectAllBox = document.getElementById('select-all-checkbox');
+                        if (selectAllBox) selectAllBox.checked = Array.from(checkboxes).every(c => c.checked);
                         this.updateStateFromCheckboxes();
                     }
                 }

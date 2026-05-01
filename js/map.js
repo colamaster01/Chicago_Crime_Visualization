@@ -129,7 +129,6 @@ export const MapRenderer = {
         this.map.addLayer({
             id: 'unclustered-point', type: 'circle', source: 'micro-points', minzoom: ZOOM_THRESHOLD, filter: ['!', ['has', 'point_count']],
             paint: {
-                // 👑 终极优化：直接提取底层 API 动态计算好的颜色！无需再写死长长的 match 判断
                 'circle-color': ['get', 'color'],
                 'circle-radius': 6, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff'
             }
@@ -357,6 +356,7 @@ export const MapRenderer = {
             };
         });
 
+        // 这个变量不仅控制高度是否显示，也决定了是否要把柱状图绘制出来
         const shouldShowColumns = this.is3DActive && this.isMacroVisible;
 
         const extrusionLayer = new deck.PolygonLayer({
@@ -365,7 +365,8 @@ export const MapRenderer = {
             extruded: true,
             stroked: false,      
             
-            pickable: true,         
+            // 👑 核心修复：只有处于 3D 模式下，这个隐藏的圆盘才能被鼠标触碰（pickable）！
+            pickable: shouldShowColumns,         
             autoHighlight: true,    
             highlightColor: [255, 255, 255, 60], 
 
@@ -402,9 +403,11 @@ export const MapRenderer = {
                 }
             },
 
+            // 必须把 shouldShowColumns 加入触发更新的依赖中
             updateTriggers: {
                 getElevation: [this.is3DActive, this.isMacroVisible, isEmpty],
-                getFillColor: [this.is3DActive, this.isMacroVisible, isEmpty]
+                getFillColor: [this.is3DActive, this.isMacroVisible, isEmpty],
+                pickable: [this.is3DActive, this.isMacroVisible]
             },
 
             material: {

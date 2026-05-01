@@ -101,7 +101,6 @@ body {
    ========================================================== */
 .checkbox-list { 
   position: relative;
-  /* 去掉 fixed height，交由 D3 动态注入 height 以便触发右侧面板本身的滚动条 */
   border: 1px solid var(--border-glow); 
   border-radius: 8px; 
   background: rgba(13, 24, 41, 0.4); 
@@ -121,7 +120,6 @@ body {
   display: flex; align-items: center; justify-content: flex-start;
 }
 
-/* 👑 D3 动态排版外壳：取消固高，允许其被子内容撑开 */
 .legend-row[data-type] {
   position: absolute;
   left: 0; right: 0;
@@ -131,7 +129,7 @@ body {
 
 .merged-legend-item { 
   display: flex; align-items: center; justify-content: space-between; 
-  height: 44px; /* 单个主标签锁死高 44px */
+  height: 44px;
   padding: 0 12px;
   font-size: 11px; font-weight: 500; color: var(--text-secondary); 
   cursor: pointer; 
@@ -141,11 +139,10 @@ body {
 }
 .merged-legend-item:hover { background: var(--bg-glass-light); border-left-color: var(--accent); color: var(--text-bright); box-shadow: inset 0 0 12px rgba(60, 160, 235, 0.05); }
 
-/* 👑 OTHER 下拉子菜单样式：首行缩进 */
 .sub-legend-item {
   display: flex; align-items: center; justify-content: space-between;
   height: 34px; 
-  padding-left: 36px; /* 极强的缩进感，清晰展示归属关系 */
+  padding-left: 36px;
   padding-right: 12px;
   border-bottom: 1px dashed rgba(30, 58, 95, 0.3);
 }
@@ -168,20 +165,6 @@ body {
 .legend-color:hover { transform: scale(1.3); box-shadow: 0 0 6px currentColor; }
 .legend-color:active { cursor: grabbing; }
 
-/* 👑 拖拽升维与降维的发光提示特效 */
-.checkbox-list.drag-active-pull-out {
-    /* 当拖拽子项时，整个外围亮起绿灯，暗示“丢到外边来升维” */
-    border-color: #10b981;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
-}
-
-#other-row.drag-active-drop-in .merged-legend-item {
-    /* 当拖拽大类时，OTHER项亮起红灯，暗示“丢进来降维” */
-    background: rgba(239, 68, 68, 0.1) !important;
-    border-left-color: #ef4444;
-    box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.3) !important;
-}
-
 /* ---------- 控制图表细节 ---------- */
 .chart-canvas { width: 100%; }
 .brush .overlay { pointer-events: all; }
@@ -198,10 +181,7 @@ body {
 .weight-bar-label { font-size: 10px; color: var(--text-tertiary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0; }
 .reset-btn { background: none; border: 1px solid var(--border-default); color: var(--text-muted); cursor: pointer; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s; }
 .reset-btn:hover { border-color: var(--accent); color: var(--accent-bright); background: var(--accent-dim); box-shadow: 0 0 8px rgba(60, 160, 235, 0.2); }
-.weight-bar { height: 12px; display: flex; width: 100%; border-radius: 6px; overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border-default); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
-.weight-bar.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim), inset 0 1px 4px rgba(0,0,0,0.3); }
-.weight-segment { transition: flex 0.15s ease-out; cursor: ns-resize; position: relative; }
-.weight-segment:hover { filter: brightness(1.2) saturate(1.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); z-index: 2; }
+.weight-bar { height: 12px; display: flex; width: 100%; border-radius: 6px; overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border-default); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); transition: opacity 0.3s; }
 
 /* ==========================================================
    👑 地图悬浮图例 (位移动画已完美同步)
@@ -226,3 +206,47 @@ body {
 .legend-item { display: flex; align-items: center; font-weight: 500; letter-spacing: 0.3px; color: var(--text-primary); transition: color 0.15s; }
 .legend-item:hover { color: var(--text-white); }
 .legend-item span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 5px currentColor; }
+
+/* ==========================================================
+   👑 拖拽升维与降维、删除的发光提示特效 
+   ========================================================== */
+
+/* 让加权条上的色块呈现可抓取状态 */
+.weight-segment { 
+  transition: flex 0.15s ease-out; 
+  cursor: grab; 
+  position: relative; 
+}
+.weight-segment:active { cursor: grabbing; }
+
+/* 当拖拽子项脱离 OTHER 时，全局绿灯提示松手即升维 */
+body.drag-active-pull-out-global {
+    box-shadow: inset 0 0 50px rgba(16, 185, 129, 0.4) !important;
+    border: 2px dashed #10b981 !important;
+}
+body.drag-active-pull-out-global #checkbox-list-container {
+    border-color: #10b981;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+/* 当从加权条拖出色块时，全局红灯提示松手即删除(取消选中) */
+body.drag-active-remove {
+    box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.3) !important;
+    border: 2px dashed #ef4444 !important;
+}
+body.drag-active-remove #weight-bar {
+    opacity: 0.5; /* 加权条变暗，暗示元素将被剥离 */
+}
+
+/* 当拖拽大类时，OTHER项亮起红灯，暗示丢进来降维 */
+#other-row.drag-active-drop-in .merged-legend-item {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border-left-color: #ef4444;
+    box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* 权重条高亮 */
+#weight-bar.drag-over { 
+    border-color: var(--accent); 
+    box-shadow: 0 0 0 2px var(--accent-dim), inset 0 1px 4px rgba(0,0,0,0.3); 
+}
