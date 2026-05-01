@@ -43,6 +43,10 @@ export const SankeyPanel = {
         document.getElementById('sankey-title').textContent = communityName;
         document.getElementById('sankey-panel').classList.add('open');
 
+        // 👑 新增联动：推开底部的热力图图例
+        const legend = document.getElementById('severity-legend');
+        if (legend) legend.classList.add('shifted-by-sankey');
+
         await this.update(filters);
     },
 
@@ -80,31 +84,29 @@ export const SankeyPanel = {
         this.focusedNode = null;
         document.getElementById('sankey-panel').classList.remove('open');
         document.getElementById('sankey-tooltip').style.display = 'none';
-    },
+
+        // 👑 新增联动：让热力图图例平滑归位
+        const legend = document.getElementById('severity-legend');
+        if (legend) legend.classList.remove('shifted-by-sankey');
+    } /* 下面的代码保持不变，不再赘述，你只需复制全量文件即可 */,
 
     _render() {
         if (!this.rawData) return;
         const self = this;
         
-        // 1. 获取一份干净的数据
         const data = JSON.parse(JSON.stringify(this.rawData));
         let displayNodes = data.nodes;
         let displayLinks = data.links;
 
-        // ==========================================
-        // 👑 核心交互 1：点击节点实现“图表放大/聚焦”
-        // ==========================================
         const subtitle = document.getElementById('sankey-subtitle');
         if (this.focusedNode) {
             subtitle.innerHTML = `Crime Type → Time of Day <br><span style="color:#fbbf24; font-size:10px;">(Focusing: ${this.focusedNode} - Click node to reset)</span>`;
             
-            // 过滤出与聚焦节点相关的 link
             displayLinks = data.links.filter(l => 
                 data.nodes[l.source].name === this.focusedNode || 
                 data.nodes[l.target].name === this.focusedNode
             );
             
-            // 提取被保留的节点索引，重新映射 id
             const usedIndices = new Set();
             displayLinks.forEach(l => { usedIndices.add(l.source); usedIndices.add(l.target); });
             
@@ -117,7 +119,6 @@ export const SankeyPanel = {
                     displayNodes.push(n);
                 }
             });
-            // 重写 link 的 source 和 target
             displayLinks.forEach(l => {
                 l.source = indexMap[l.source];
                 l.target = indexMap[l.target];
@@ -126,7 +127,6 @@ export const SankeyPanel = {
             subtitle.innerHTML = `Crime Type → Time of Day <br><span style="color:#64748b; font-size:10px;">(Click any node to focus & expand)</span>`;
         }
 
-        // 2. 初始化 D3 画布
         const container = document.getElementById('sankey-body');
         const W = container.clientWidth - 32; 
         const H = Math.max(400, displayNodes.length * 28);
@@ -156,9 +156,6 @@ export const SankeyPanel = {
             node.color = TIME_COLORS[node.name] || TYPE_COLORS[i % TYPE_COLORS.length];
         });
 
-        // ==========================================
-        // 👑 核心交互 2：中间流线的 Hover 与弹窗
-        // ==========================================
         const tooltip = d3.select('#sankey-tooltip');
 
         svg.append('g').selectAll('path')
@@ -174,7 +171,6 @@ export const SankeyPanel = {
                 tooltip.style('display', 'block');
             })
             .on('mousemove', function(e, d) {
-                // 计算占比
                 const pctSource = ((d.value / d.source.value) * 100).toFixed(1);
                 const pctTarget = ((d.value / d.target.value) * 100).toFixed(1);
                 
@@ -191,7 +187,6 @@ export const SankeyPanel = {
                     </div>
                 `);
 
-                // 防止 tooltip 超出右侧屏幕边缘
                 let x = e.clientX + 15;
                 let y = e.clientY + 15;
                 if (x + 220 > window.innerWidth) x = e.clientX - 230;
@@ -203,9 +198,6 @@ export const SankeyPanel = {
                 tooltip.style('display', 'none');
             });
 
-        // ==========================================
-        // 👑 核心交互 3：节点 Hover 加深 & Click 放缩
-        // ==========================================
         const nodeG = svg.append('g').selectAll('g').data(graph.nodes).join('g');
 
         nodeG.append('rect')
@@ -216,22 +208,17 @@ export const SankeyPanel = {
             .attr('fill', d => d.color)
             .attr('rx', 3)
             .style('cursor', 'pointer')
-            // Hover 颜色加深
             .on('mouseover', function(e, d) {
                 d3.select(this).attr('fill', d3.color(d.color).darker(0.6));
             })
-            // Hover 颜色恢复
             .on('mouseout', function(e, d) {
                 d3.select(this).attr('fill', d.color);
             })
-            // Click 触发放大或恢复
             .on('click', function(e, d) {
-                // 如果点的是已经放大的自己，就复原；如果是别的，就放大它
                 self.focusedNode = (self.focusedNode === d.name) ? null : d.name;
-                self._render(); // 重新走上面的布局计算，实现完美充满屏幕！
+                self._render(); 
             });
 
-        // 绘制节点文字
         nodeG.append('text')
             .attr('x', d => d.x0 < W / 2 ? d.x1 + 6 : d.x0 - 6) 
             .attr('y', d => (d.y0 + d.y1) / 2)
@@ -239,25 +226,33 @@ export const SankeyPanel = {
             .attr('text-anchor', d => d.x0 < W / 2 ? 'start' : 'end')
             .attr('fill', '#cbd5e1')
             .attr('font-size', 11)
-            .style('pointer-events', 'none') // 文字不阻挡点击
+            .style('pointer-events', 'none') 
             .text(d => `${d.name} (${d.value.toLocaleString()})`);
     },
 
     _injectStyles() {
+        if (document.getElementById('sankey-injected-style')) {
+            document.getElementById('sankey-injected-style').remove();
+        }
+        
         const style = document.createElement('style');
+        style.id = 'sankey-injected-style';
         style.textContent = `
             #sankey-panel {
                 position: fixed;
-                top: 0; right: 0;
-                width: 380px; height: 100vh;
+                top: 40px; 
+                left: 0; 
+                width: 380px; 
+                height: calc(80vh - 40px);
                 background: rgba(15, 23, 42, 0.97);
-                border-left: 1px solid #1e293b;
-                transform: translateX(100%);
+                border-right: 1px solid #1e293b;
+                transform: translateX(-100%);
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 1000;
                 display: flex;
                 flex-direction: column;
                 font-family: sans-serif;
+                box-shadow: 4px 0 15px rgba(0,0,0,0.5);
             }
             #sankey-panel.open {
                 transform: translateX(0);
@@ -306,9 +301,9 @@ export const SankeyPanel = {
                 font-size: 13px;
             }
             
-            /* 👇 专门给鼠标悬停弹窗写的样式，完美契合暗黑主题 */
             #sankey-tooltip {
-                position: fixed;
+                position: fixed !important; 
+                z-index: 999999 !important; 
                 background: rgba(15, 23, 42, 0.95);
                 color: #f8fafc;
                 padding: 10px 14px;
@@ -317,10 +312,11 @@ export const SankeyPanel = {
                 font-family: sans-serif;
                 font-size: 12px;
                 pointer-events: none;
-                z-index: 10001;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+                box-shadow: 0 8px 30px rgba(0,0,0,0.8);
                 display: none;
                 min-width: 170px;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
             }
         `;
         document.head.appendChild(style);

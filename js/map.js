@@ -57,7 +57,8 @@ export const MapRenderer = {
     init(onReadyCallback) {
         this.map = new maplibregl.Map({
             container: 'map', 
-            style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json', 
+            // 👑 样式变更 1：将底图从 positron(明亮) 替换为 dark-matter(暗黑)
+            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', 
             center: INITIAL_CENTER, 
             zoom: INITIAL_ZOOM,
             pitch: INITIAL_PITCH,
@@ -108,14 +109,18 @@ export const MapRenderer = {
         this.map.addLayer({
             id: 'area-fill', type: 'fill', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD,
             paint: { 
-                'fill-color': '#e2e8f0', 
+                // 👑 样式变更 2：默认空数据背景色改为更深邃的深空灰，融入暗黑地图
+                'fill-color': '#1e293b', 
                 'fill-opacity': 0.75, 
                 'fill-opacity-transition': { duration: 600 } 
             } 
         });
-        this.map.addLayer({ id: 'area-borders', type: 'line', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, paint: { 'line-color': '#000000', 'line-width': 1.0, 'line-opacity': 0.3 } });
         
-        this.map.addLayer({ id: 'community-labels', type: 'symbol', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, layout: { 'text-field': ['get', 'community'], 'text-size': 11, 'text-justify': 'center' }, paint: { 'text-color': '#333333', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 } });
+        // 👑 样式变更 3：将纯黑色的行政区划边界改为柔和的灰蓝色，在暗黑底图上更清晰且不刺眼
+        this.map.addLayer({ id: 'area-borders', type: 'line', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, paint: { 'line-color': '#475569', 'line-width': 1.0, 'line-opacity': 0.6 } });
+        
+        // 👑 样式变更 4：将社区名字的黑色文字+白光圈，反转为浅灰文字+深空灰光圈
+        this.map.addLayer({ id: 'community-labels', type: 'symbol', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, layout: { 'text-field': ['get', 'community'], 'text-size': 11, 'text-justify': 'center' }, paint: { 'text-color': '#cbd5e1', 'text-halo-color': '#0f172a', 'text-halo-width': 1.5 } });
 
         this.map.addSource('micro-points', { type: 'geojson', data: { type: "FeatureCollection", features: [] }, cluster: true, clusterMaxZoom: 15, clusterRadius: 180 });
         this.map.addLayer({
@@ -246,7 +251,6 @@ export const MapRenderer = {
                 this.isMacroVisible = isVisible;
                 this.renderDeckLayer();
 
-                // 👑 联动逻辑：放大进入微观层级时，隐藏宏观颜色的图例
                 const legend = document.getElementById('severity-legend');
                 if (legend) {
                     legend.style.opacity = isVisible ? '1' : '0';
@@ -258,13 +262,11 @@ export const MapRenderer = {
         this.map.on('mouseenter', 'clusters', () => { this.map.getCanvas().style.cursor = 'pointer'; });
         this.map.on('mouseleave', 'clusters', () => { this.map.getCanvas().style.cursor = ''; });
         
-        // 👑 终极修复：彻底弃用容易引发重叠坐标死循环的 getClusterExpansionZoom，改为固定安全步进缩放。
         this.map.on('click', 'clusters', (e) => {
             const features = this.map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
             if (!features.length) return;
             
             const currentZoom = this.map.getZoom();
-            // 每次点击固定放大 2 个层级，最大不超过 18 级。完全避开底层运算，100% 不会卡死。
             const safeZoom = Math.min(currentZoom + 2, 18);
             
             this.map.easeTo({ 
@@ -306,7 +308,8 @@ export const MapRenderer = {
         this.map.getSource('macro-areas').setData(macroData.geoJson);
 
         if (macroData.isEmpty) {
-            this.map.setPaintProperty('area-fill', 'fill-color', '#5e636a');
+            // 👑 空数据的 2D 颜色也更换为深空灰
+            this.map.setPaintProperty('area-fill', 'fill-color', '#1e293b');
         } else {
             const t = macroData.thresholds;
             const colorRamp = [
@@ -327,7 +330,8 @@ export const MapRenderer = {
         const t = data.thresholds;
 
         const getColor = (score) => {
-            if (isEmpty) return [148, 163, 184]; 
+            // 👑 空数据的 3D 柱体也换成深空灰色 (RGB 格式对应 #1e293b)
+            if (isEmpty) return [30, 41, 59]; 
             
             if (score < t.p20) return [26, 152, 80];        
             if (score < t.p40) return [166, 217, 106];      
