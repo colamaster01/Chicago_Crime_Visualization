@@ -9,14 +9,15 @@ let currentData = [];
 let currentMaxCount = 1;
 let cachedWidthScale = null;
 
-// 👑 负责将 API 吐出的子案件动态渲染成 HTML 嵌入 OTHER 的菜单中
 function renderSubItems(subTypeCounts) {
     const subList = document.getElementById('other-sub-list');
     if (!subList) return;
     
-    // 子菜单勾选状态永远跟随父级 OTHER
     const otherMain = document.getElementById('other-checkbox-main');
     const otherChecked = otherMain ? otherMain.checked : true;
+    
+    // 👑 动态读取 OTHER 的当前颜色
+    const otherColor = State.typeColors['OTHER'] || '#7f7f7f';
     
     let html = '';
     const subData = Object.entries(subTypeCounts)
@@ -25,15 +26,16 @@ function renderSubItems(subTypeCounts) {
     
     subData.forEach(d => {
         const pct = currentMaxCount > 0 ? (d.count / currentMaxCount) * 100 : 0;
+        // 子项具备可拖拽属性：draggable="true" data-type="${d.type}"
         html += `
             <div class="sub-legend-item">
                 <div class="legend-item-left">
                     <input type="checkbox" disabled ${otherChecked ? 'checked' : ''} style="margin-right: 8px;">
-                    <div class="legend-color" style="background:#7f7f7f; width:8px; height:8px; margin-right: 8px; box-shadow:none;"></div>
+                    <div class="legend-color sub-legend-color" draggable="true" data-type="${d.type}" style="background:${otherColor}; width:8px; height:8px; margin-right: 8px; box-shadow:none; cursor:grab;"></div>
                     <span style="font-size:9px; color:#94a3b8; word-break: break-word;">${d.type}</span>
                 </div>
                 <div class="legend-count-wrap">
-                    <div class="legend-count-bar" style="height: 3px;"><div class="legend-count-fill" style="background:#7f7f7f; width:${pct}%;"></div></div>
+                    <div class="legend-count-bar" style="height: 3px;"><div class="legend-count-fill" style="background:${otherColor}; width:${pct}%;"></div></div>
                     <span class="legend-count-num" style="font-size: 10px; color:#cbd5e1;">${d.count.toLocaleString()}</span>
                 </div>
             </div>
@@ -42,40 +44,36 @@ function renderSubItems(subTypeCounts) {
     subList.innerHTML = html;
 }
 
-// 👑 负责测算动态高度并执行 D3 动画
 function layoutD3(widthScale) {
     if(widthScale) cachedWidthScale = widthScale;
 
-    let currentY = 45; // 预留出顶部 Select All 按钮的高度
+    let currentY = 45; 
     const yOffsets = {};
     
     currentData.forEach(d => {
         yOffsets[d.type] = currentY;
-        currentY += d.row.offsetHeight; // 高度自适应！如果 OTHER 展开了，这里会自动加上下拉菜单的高度
+        currentY += d.row.offsetHeight; 
     });
 
-    // 让外部包裹容器也动态变高，以便出现正常的页面滚动条
     document.getElementById('checkbox-list-container').style.height = `${currentY}px`;
 
-    // 🚨 终极修复：正确处理未绑定数据的 DOM 元素的 Key 函数！
     const sel = d3.select('#checkbox-list-container')
         .selectAll('.legend-row[data-type]')
-        .data(currentData, function(d) { 
-            // 极其关键：如果是新数据返回 d.type，如果是原生标签，读取 data-type
-            return d ? d.type : this.getAttribute('data-type'); 
-        });
+        .data(currentData, function(d) { return d ? d.type : this.getAttribute('data-type'); });
 
     // D3 洗牌位移动画
     sel.transition().duration(800).ease(d3.easeCubicOut)
        .style('transform', d => `translateY(${yOffsets[d.type]}px)`);
 
-    // D3 数据条与数字动态滚动
     if(cachedWidthScale) {
-         sel.select('.merged-legend-item .legend-count-fill')
+        // 👑 颜色同步更新！
+        sel.select('.legend-color').style('background-color', d => State.typeColors[d.type] || '#ffffff');
+        sel.select('.legend-count-fill')
+           .style('background-color', d => State.typeColors[d.type] || '#ffffff')
            .transition().duration(800).ease(d3.easeCubicOut)
            .style('width', d => `${cachedWidthScale(d.count)}%`);
 
-         sel.select('.merged-legend-item .legend-count-num')
+        sel.select('.legend-count-num')
            .transition().duration(800).ease(d3.easeCubicOut)
            .textTween(function(d) {
                let currentText = this.textContent.replace(/,/g, '');
@@ -87,8 +85,56 @@ function layoutD3(widthScale) {
     }
 }
 
+// 👑 当大类增减时，我们需要同步刷新 HTML 骨架（如果没有该大类的容器，就创建一个！）
+function ensureHTMLRowsExist(typeCounts) {
+    const container = document.getElementById('checkbox-list-container');
+    const existingRows = Array.from(container.querySelectorAll('.legend-row[data-type]')).map(r => r.dataset.type);
+    const neededTypes = State.explicitTypes.concat(['OTHER']); // 所有显性大类 + OTHER
+    
+    let domChanged = false;
+
+    // 添加新的大类行
+    neededTypes.forEach(type => {
+        if (!existingRows.includes(type) && type !== 'OTHER') {
+            const row = document.createElement('div');
+            row.className = 'legend-row';
+            row.dataset.type = type;
+            row.style.position = 'absolute'; // 兼容 D3
+            row.style.left = '0'; row.style.right = '0'; row.style.margin = '0';
+            
+            const color = State.typeColors[type] || '#ffffff';
+            row.innerHTML = `
+                <label class="merged-legend-item">
+                  <div class="legend-item-left"><input type="checkbox" class="crime-checkbox" value="${type}" checked><div class="legend-color" style="background:${color};" draggable="true" data-type="${type}"></div><span>${type}</span></div>
+                  <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:${color};"></div></div><span class="legend-count-num">—</span></div>
+                </label>
+            `;
+            // 插入在 OTHER 之前
+            const otherRow = document.getElementById('other-row');
+            container.insertBefore(row, otherRow);
+            domChanged = true;
+        }
+    });
+
+    // 移除不再是大类的行
+    existingRows.forEach(type => {
+        if (!neededTypes.includes(type) && type !== 'OTHER') {
+            const row = container.querySelector(`.legend-row[data-type="${type}"]`);
+            if (row) {
+                row.remove();
+                domChanged = true;
+            }
+        }
+    });
+
+    return domChanged;
+}
+
 function updateCrimeCountsD3(typeCounts, subTypeCounts) {
     if (!typeCounts) return;
+
+    // 先检查 DOM 是否完整
+    ensureHTMLRowsExist(typeCounts);
 
     currentData = [];
     const rows = document.querySelectorAll('.legend-row[data-type]');
@@ -98,7 +144,10 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
         currentData.push({ type, count, row });
     });
 
+    // 👑 强制 OTHER 永远垫底！
     currentData.sort((a, b) => {
+        if (a.type === 'OTHER') return 1;
+        if (b.type === 'OTHER') return -1;
         const diff = b.count - a.count;
         return diff !== 0 ? diff : a.type.localeCompare(b.type);
     });
@@ -106,7 +155,6 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
     currentMaxCount = d3.max(currentData, d => d.count) || 1;
     const widthScale = d3.scaleLinear().domain([0, currentMaxCount]).range([0, 100]);
 
-    // 渲染子案件后立刻让 D3 重新排列一切高度
     if (subTypeCounts) {
         renderSubItems(subTypeCounts);
     }
@@ -117,7 +165,6 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
 document.addEventListener('DOMContentLoaded', async () => { 
     console.log("Main activating");
     
-    // 👑 新增：OTHER 的下拉展开交互，点击时动态重排
     document.addEventListener('click', e => {
         if (e.target.closest('#other-toggle')) {
             const subList = document.getElementById('other-sub-list');
@@ -129,7 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 subList.style.display = 'none';
                 toggleIcon.style.transform = 'rotate(0deg)';
             }
-            layoutD3(); // 强制 D3 重新计算高度重排，极其丝滑
+            layoutD3(); 
         }
     });
     
@@ -158,7 +205,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (macroData) MapRenderer.updateMacroData(macroData);
                     ChartRenderer.updateAllHistograms(histData, filters);
                     
-                    // 传入额外分离出来的 subTypeCounts 用于子菜单渲染
                     updateCrimeCountsD3(histData.typeCounts, histData.subTypeCounts);
                     
                     if (SankeyPanel.isOpen) SankeyPanel.update(filters);

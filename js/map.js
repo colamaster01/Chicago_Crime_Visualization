@@ -1,12 +1,10 @@
 const ZOOM_THRESHOLD = 12.5; 
 
-// 预设的芝加哥初始视角
 const INITIAL_CENTER = [-87.7, 41.83];
 const INITIAL_ZOOM = 9.6;
 const INITIAL_PITCH = 0;
 const INITIAL_BEARING = 0;
 
-// 自定义“重回芝加哥”按钮控件
 class HomeButtonControl {
     onAdd(map) {
         this.map = map;
@@ -18,7 +16,6 @@ class HomeButtonControl {
         button.type = 'button';
         button.title = 'Reset to Chicago View';
         button.style.cursor = 'pointer';
-        // 使用一个简单的 SVG 作为 Home 图标
         button.innerHTML = `
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin: 6px auto; display: block; color: #333;">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -32,7 +29,7 @@ class HomeButtonControl {
                 zoom: INITIAL_ZOOM,
                 pitch: INITIAL_PITCH,
                 bearing: INITIAL_BEARING,
-                essential: true // 强制执行动画，即使用户设置了偏好减少动画
+                essential: true 
             });
         });
 
@@ -57,7 +54,6 @@ export const MapRenderer = {
     init(onReadyCallback) {
         this.map = new maplibregl.Map({
             container: 'map', 
-            // 👑 样式变更 1：将底图从 positron(明亮) 替换为 dark-matter(暗黑)
             style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', 
             center: INITIAL_CENTER, 
             zoom: INITIAL_ZOOM,
@@ -109,17 +105,14 @@ export const MapRenderer = {
         this.map.addLayer({
             id: 'area-fill', type: 'fill', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD,
             paint: { 
-                // 👑 样式变更 2：默认空数据背景色改为更深邃的深空灰，融入暗黑地图
                 'fill-color': '#1e293b', 
                 'fill-opacity': 0.75, 
                 'fill-opacity-transition': { duration: 600 } 
             } 
         });
         
-        // 👑 样式变更 3：将纯黑色的行政区划边界改为柔和的灰蓝色，在暗黑底图上更清晰且不刺眼
         this.map.addLayer({ id: 'area-borders', type: 'line', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, paint: { 'line-color': '#475569', 'line-width': 1.0, 'line-opacity': 0.6 } });
         
-        // 👑 样式变更 4：将社区名字的黑色文字+白光圈，反转为浅灰文字+深空灰光圈
         this.map.addLayer({ id: 'community-labels', type: 'symbol', source: 'macro-areas', maxzoom: ZOOM_THRESHOLD, layout: { 'text-field': ['get', 'community'], 'text-size': 11, 'text-justify': 'center' }, paint: { 'text-color': '#cbd5e1', 'text-halo-color': '#0f172a', 'text-halo-width': 1.5 } });
 
         this.map.addSource('micro-points', { type: 'geojson', data: { type: "FeatureCollection", features: [] }, cluster: true, clusterMaxZoom: 15, clusterRadius: 180 });
@@ -132,10 +125,12 @@ export const MapRenderer = {
             }
         });
         this.map.addLayer({ id: 'cluster-count', type: 'symbol', source: 'micro-points', minzoom: ZOOM_THRESHOLD, filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 15 }, paint: { 'text-color': '#000000' } });
+        
         this.map.addLayer({
             id: 'unclustered-point', type: 'circle', source: 'micro-points', minzoom: ZOOM_THRESHOLD, filter: ['!', ['has', 'point_count']],
             paint: {
-                'circle-color': ['match', ['get', 'type'], 'THEFT', '#1f77b4', 'BATTERY', '#ff7f0e', 'CRIMINAL DAMAGE', '#ffbb78', 'NARCOTICS', '#2ca02c', 'ASSAULT', '#d62728', 'BURGLARY', '#9467bd', 'ROBBERY', '#8c564b', 'MOTOR VEHICLE THEFT', '#e377c2', 'HOMICIDE', '#000000', '#7f7f7f'],
+                // 👑 终极优化：直接提取底层 API 动态计算好的颜色！无需再写死长长的 match 判断
+                'circle-color': ['get', 'color'],
                 'circle-radius': 6, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff'
             }
         });
@@ -308,7 +303,6 @@ export const MapRenderer = {
         this.map.getSource('macro-areas').setData(macroData.geoJson);
 
         if (macroData.isEmpty) {
-            // 👑 空数据的 2D 颜色也更换为深空灰
             this.map.setPaintProperty('area-fill', 'fill-color', '#1e293b');
         } else {
             const t = macroData.thresholds;
@@ -330,7 +324,6 @@ export const MapRenderer = {
         const t = data.thresholds;
 
         const getColor = (score) => {
-            // 👑 空数据的 3D 柱体也换成深空灰色 (RGB 格式对应 #1e293b)
             if (isEmpty) return [30, 41, 59]; 
             
             if (score < t.p20) return [26, 152, 80];        

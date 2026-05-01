@@ -1,13 +1,13 @@
 import { API } from './api.js';
+import { State } from './state.js';
 
 export const SankeyPanel = {
     isOpen: false,
     currentAreaId: null,
-    rawData: null,       // 保存原始数据，用于恢复
-    focusedNode: null,   // 记录当前被点击放大的节点名称
+    rawData: null,       
+    focusedNode: null,   
 
     init() {
-        // 注入 panel 的 HTML 骨架
         const panel = document.createElement('div');
         panel.id = 'sankey-panel';
         panel.innerHTML = `
@@ -25,7 +25,6 @@ export const SankeyPanel = {
         `;
         document.body.appendChild(panel);
 
-        // 注入 Tooltip 的 HTML 骨架
         const tooltip = document.createElement('div');
         tooltip.id = 'sankey-tooltip';
         document.body.appendChild(tooltip);
@@ -38,14 +37,13 @@ export const SankeyPanel = {
     async open(areaId, communityName, filters) {
         this.currentAreaId = areaId;
         this.isOpen = true;
-        this.focusedNode = null; // 每次打开新社区，重置放大状态
+        this.focusedNode = null; 
 
         document.getElementById('sankey-title').textContent = communityName;
         document.getElementById('sankey-panel').classList.add('open');
 
-        // 👑 新增联动：推开底部的热力图图例
         const legend = document.getElementById('severity-legend');
-        if (legend) legend.classList.add('shifted-by-sankey');
+        if (legend) legend.classList.add('hidden-by-sankey');
 
         await this.update(filters);
     },
@@ -57,20 +55,21 @@ export const SankeyPanel = {
         document.getElementById('sankey-svg').style.display = 'none';
         document.getElementById('sankey-loading').textContent = 'Loading...';
 
-        const data = await API.fetchSankey(this.currentAreaId, filters);
+        const rawApiData = await API.fetchSankey(this.currentAreaId, filters);
         
-        if (!data || data.links.length === 0) {
+        if (!rawApiData || rawApiData.links.length === 0) {
             document.getElementById('sankey-loading').textContent = 'No data available in current selection.';
             return;
         }
 
-        // 保存一份最原始的数据（深拷贝），防止被 D3 污染
-        this.rawData = JSON.parse(JSON.stringify(data));
+        // 👑 核心逻辑：拦截 API 原始数据，将所有的“非 explicit 大类”全部归并聚类（Cluster）成一个 OTHER
+        const clusteredData = this._clusterOtherTypes(rawApiData);
 
-        // 如果用户在放大状态下拖动了滑块，检查该节点是否还在当前时间段内存在
+        this.rawData = JSON.parse(JSON.stringify(clusteredData));
+
         if (this.focusedNode) {
             const exists = this.rawData.nodes.some(n => n.name === this.focusedNode);
-            if (!exists) this.focusedNode = null; // 不存在了就自动退回全览模式
+            if (!exists) this.focusedNode = null; 
         }
 
         document.getElementById('sankey-loading').style.display = 'none';
@@ -79,16 +78,67 @@ export const SankeyPanel = {
         this._render();
     },
 
+    // 👑 新增：数据清洗与聚类函数
+    _clusterOtherTypes(apiData) {
+        const explicitTypes = State.explicitTypes;
+        const timeSlots = ['Late Night', 'Morning', 'Afternoon', 'Night'];
+        
+        const mergedLinks = new Map();
+
+        // 遍历所有 API 给的流向线
+        apiData.links.forEach(link => {
+            const sourceName = apiData.nodes[link.source].name;
+            const targetName = apiData.nodes[link.target].name;
+
+            // 如果源节点是一个案件（而不是时间段），并且它既不是显性大类，也不是时间段本身 -> 那它就是 OTHER
+            const effectiveSourceName = (explicitTypes.includes(sourceName) || timeSlots.includes(sourceName)) 
+                                        ? sourceName 
+                                        : 'OTHER';
+            
+            // 构建归并后的唯一 Key
+            const key = `${effectiveSourceName}|${targetName}`;
+            
+            if (mergedLinks.has(key)) {
+                mergedLinks.set(key, mergedLinks.get(key) + link.value);
+            } else {
+                mergedLinks.set(key, link.value);
+            }
+        });
+
+        // 重建标准的 D3 nodes 和 links 结构
+        const newNodes = [];
+        const newLinks = [];
+        const nodeIndexMap = {};
+
+        const getNewNodeIndex = (name) => {
+            if (nodeIndexMap[name] === undefined) {
+                nodeIndexMap[name] = newNodes.length;
+                newNodes.push({ name });
+            }
+            return nodeIndexMap[name];
+        };
+
+        mergedLinks.forEach((value, key) => {
+            const [src, tgt] = key.split('|');
+            newLinks.push({
+                source: getNewNodeIndex(src),
+                target: getNewNodeIndex(tgt),
+                value: value
+            });
+        });
+
+        return { nodes: newNodes, links: newLinks };
+    },
+
     close() {
         this.isOpen = false;
         this.focusedNode = null;
         document.getElementById('sankey-panel').classList.remove('open');
         document.getElementById('sankey-tooltip').style.display = 'none';
 
-        // 👑 新增联动：让热力图图例平滑归位
         const legend = document.getElementById('severity-legend');
-        if (legend) legend.classList.remove('shifted-by-sankey');
-    } /* 下面的代码保持不变，不再赘述，你只需复制全量文件即可 */,
+        if (legend) legend.classList.remove('hidden-by-sankey');
+    },
 
     _render() {
         if (!this.rawData) return;
@@ -138,11 +188,15 @@ export const SankeyPanel = {
             .nodeWidth(14)
             .nodePadding(10)
             .nodeSort((a, b) => {
+                // 确保 OTHER 永远排在案件类型的最下面
+                if (a.name === 'OTHER' && !['Late Night', 'Morning', 'Afternoon', 'Night'].includes(b.name)) return 1;
+                if (b.name === 'OTHER' && !['Late Night', 'Morning', 'Afternoon', 'Night'].includes(a.name)) return -1;
+
                 const ORDER = ['Late Night', 'Morning', 'Afternoon', 'Night'];
                 const ai = ORDER.indexOf(a.name), bi = ORDER.indexOf(b.name);
                 if (ai === -1 && bi === -1) return 0;
-                if (ai === -1) return 0;
-                if (bi === -1) return 0;
+                if (ai === -1) return -1; // 案件排左边
+                if (bi === -1) return 1;
                 return ai - bi;
             })
             .extent([[0, 0], [W, H]]);
@@ -150,10 +204,18 @@ export const SankeyPanel = {
         const graph = sankey({ nodes: displayNodes, links: displayLinks });
 
         const TIME_COLORS = { 'Late Night': '#6366f1', 'Morning': '#f59e0b', 'Afternoon': '#10b981', 'Night': '#3b82f6' };
-        const TYPE_COLORS = ['#f87171','#fb923c','#fbbf24','#a3e635','#34d399','#22d3ee','#818cf8','#e879f9','#94a3b8'];
 
-        graph.nodes.forEach((node, i) => {
-            node.color = TIME_COLORS[node.name] || TYPE_COLORS[i % TYPE_COLORS.length];
+        graph.nodes.forEach((node) => {
+            if (TIME_COLORS[node.name]) {
+                node.color = TIME_COLORS[node.name];
+            } else if (State.typeColors[node.name]) {
+                // 👑 动态同步 State 中的自定义颜色
+                node.color = State.typeColors[node.name];
+            } else if (node.name === 'OTHER') {
+                node.color = State.typeColors['OTHER'] || '#7f7f7f';
+            } else {
+                node.color = '#ffffff'; 
+            }
         });
 
         const tooltip = d3.select('#sankey-tooltip');

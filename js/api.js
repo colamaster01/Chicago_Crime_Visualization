@@ -1,3 +1,5 @@
+import { State } from './state.js';
+
 export const API = {
     allData: [],
     mappings: {},
@@ -50,7 +52,6 @@ export const API = {
                             this.groups.month = this.dims.month.group(d => Math.floor(d));
                             this.groups.time = this.dims.time.group(d => Math.floor(d));
                             this.groups.ca = this.dims.ca.group();
-                            
                             this.groups.type = this.dims.type.group();
 
                             this.isLoaded = true;
@@ -67,7 +68,10 @@ export const API = {
         const allowed = new Set();
         if (!crimeTypesStrArray || crimeTypesStrArray.length === 0) return allowed;
         const hasOther = crimeTypesStrArray.includes('OTHER');
-        const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
+        
+        // 👑 动态读取当前哪些是大类
+        const explicitTypes = State.explicitTypes; 
+
         for (const [idStr, name] of Object.entries(this.mappings.types)) {
             const id = parseInt(idStr);
             if (crimeTypesStrArray.includes(name)) allowed.add(id);
@@ -78,6 +82,7 @@ export const API = {
 
     updateCrossfilterState(filters) {
         const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        
         if (allowedTypes.size === 0) this.dims.type.filter(-1); 
         else this.dims.type.filterFunction(t => allowedTypes.has(t));
 
@@ -100,16 +105,26 @@ export const API = {
         const features = [];
         const [south, north, west, east] = [bounds.getSouth(), bounds.getNorth(), bounds.getWest(), bounds.getEast()];
 
+        // 读取动态颜色字典
+        const typeColors = State.typeColors;
+        const explicitTypes = State.explicitTypes;
+
         for (let i = 0; i < filteredRecords.length; i++) {
             const d = filteredRecords[i];
             if (d.lat < south || d.lat > north || d.lng < west || d.lng > east) continue;
+            
+            const rawType = this.mappings.types[d.t] || 'UNKNOWN';
+            // 👑 动态赋色：如果在 explicit 里，用它的颜色；如果是 OTHER 里的小弟，统一用 OTHER 的颜色（灰色）
+            const renderColor = explicitTypes.includes(rawType) ? (typeColors[rawType] || '#ffffff') : (typeColors['OTHER'] || '#7f7f7f');
+
             features.push({
                 type: "Feature",
                 geometry: { type: "Point", coordinates: [d.lng, d.lat] },
                 properties: { 
-                    type: this.mappings.types[d.t] || 'UNKNOWN',
+                    type: rawType,
                     desc: this.mappings.descriptions[d.desc] || '',
-                    date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}`
+                    date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}`,
+                    color: renderColor // 将颜色直接打包进数据发给地图
                 }
             });
         }
@@ -148,12 +163,12 @@ export const API = {
         const caStats = {};
         let maxSeverity = 0; 
         
-        const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
+        // 👑 动态读取大类
+        const explicitTypes = State.explicitTypes;
     
         groupedData.forEach(g => {
             let absSeverity = 0;
             for (let t in g.value.types) {
-                // 👑 终极修复：如果遇到原始案件名不在明单里，强制向权重字典索要 'OTHER' 的权重配额！
                 const weightKey = explicitTypes.includes(t) ? t : 'OTHER';
                 absSeverity += g.value.types[t] * (weights[weightKey] || 0);
             }
@@ -215,7 +230,9 @@ export const API = {
 
         const typeCounts = {};
         const subTypeCounts = {}; 
-        const explicitTypes = ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'];
+        
+        // 👑 动态读取大类
+        const explicitTypes = State.explicitTypes;
         
         this.groups.type.all().forEach(({ key, value }) => {
             const name = this.mappings.types[key];

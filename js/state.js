@@ -1,12 +1,25 @@
 export const State = {
     filters: {
-        year: [2020, 2027],  // 👑 将初始终点设为2027，保证包含 2026 所有的案件
-        month: [1, 13],      // 👑 将初始终点设为13，保证覆盖年底 (DEC 31)
+        year: [2020, 2027],  
+        month: [1, 13],      
         time: [0, 24], 
+        // 将所有可能出现的案件作为初始选中状态
         crimeTypes: ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE', 'OTHER'],
         crimeWeights: {} 
     },
     
+    // 👑 新增：动态类型管理体系
+    // 记录当前被单独列出的大类（用户可以拖入拖出改变这个数组）
+    explicitTypes: ['THEFT', 'BATTERY', 'CRIMINAL DAMAGE', 'NARCOTICS', 'ASSAULT', 'BURGLARY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'HOMICIDE'],
+    
+    // 👑 新增：颜色管理字典
+    typeColors: {
+        'THEFT': '#1f77b4', 'BATTERY': '#ff7f0e', 'CRIMINAL DAMAGE': '#ffbb78',
+        'NARCOTICS': '#2ca02c', 'ASSAULT': '#d62728', 'BURGLARY': '#9467bd',
+        'ROBBERY': '#8c564b', 'MOTOR VEHICLE THEFT': '#e377c2', 'HOMICIDE': '#00ffff', 
+        'OTHER': '#7f7f7f' // 默认兜底色
+    },
+
     mapBounds: null, 
     listeners: [],
 
@@ -63,6 +76,33 @@ export const State = {
         });
         
         this.notify('filter'); 
+    },
+
+    // 👑 新增：升维方法（从 OTHER 中拿出来作为独立大类）
+    promoteToExplicit(type) {
+        if (!this.explicitTypes.includes(type)) {
+            this.explicitTypes.push(type);
+            // 自动补齐颜色字典，生成一个随机的高亮颜色
+            if (!this.typeColors[type]) {
+                this.typeColors[type] = d3.interpolateRainbow(Math.random());
+            }
+            this.notify('filter');
+        }
+    },
+
+    // 👑 新增：降维方法（丢进 OTHER 中）
+    demoteToOther(type) {
+        const idx = this.explicitTypes.indexOf(type);
+        if (idx !== -1) {
+            this.explicitTypes.splice(idx, 1);
+            this.notify('filter');
+        }
+    },
+
+    // 👑 新增：更改颜色
+    updateColor(type, hexColor) {
+        this.typeColors[type] = hexColor;
+        this.notify('filter'); // 触发全图重绘更新颜色
     },
 
     updateBounds(bounds) {
