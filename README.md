@@ -23,10 +23,34 @@ The project is built entirely with native web technologies (HTML, CSS, Vanilla J
 * Crossfilter.js: The core client-side data engine. It creates multidimensional inverted indexes, enabling millisecond-level filtering across millions of records.
 * PapaParse: Used for asynchronous chunked parsing of the massive CSV dataset without blocking the browser's main thread.
 
-## System Architecture
+## Architecture
 
-The project follows a modular architecture to separate data processing, state management, and UI rendering:
 * data_engine.js: Handles data ingestion (PapaParse), crossfilter initialization, and spatial-temporal queries.
 * state.js: Acts as a centralized observer. It stores current filters, user-defined weights, and color mappings, notifying all renderers upon state changes.
 * map.js / chart.js / sankey.js: View controllers that listen to the state and update their respective SVG or WebGL contexts.
 * ui.js / cluster-tooltip.js: Manages DOM interactions, drag-and-drop events, and contextual map popups.
+
+## Installation & Setup
+
+The easiest way to view the dashboard is to visit the deployed live version directly:
+**[https://colamaster01.github.io/Chicago_Crime_Visualization/](https://colamaster01.github.io/Chicago_Crime_Visualization/)**
+
+Alternatively, to run the project locally for development or review, follow the steps below.
+
+1. Clone the repository
+```bash
+git clone https://github.com/colamaster01/Chicago_Crime_Visualization
+cd Chicago_Crime_Visualization
+```
+
+2. Add the dataset
+Ensure the dataset (`chicago_crimes_data_20-26.csv`) and mapping file (`crime_mapping.json`) are placed in the root directory.
+
+3. Start a local server
+Using Python 3:
+```bash
+python -m http.server 8000
+```
+
+4. Launch
+Open your web browser and navigate to `http://localhost:8000`.
