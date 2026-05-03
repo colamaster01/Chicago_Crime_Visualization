@@ -4,6 +4,9 @@ import { State } from './state.js';
 import { DataEngine } from './data_engine.js';
 import { ChartRenderer } from './chart.js'; 
 import { SankeyPanel } from './sankey.js';
+import { initClusterTooltip } from './cluster_tooltip.js';
+import { initPoliceStations } from './police_stations.js';
+import { initMapSearch } from './map_search.js';
 
 let currentData = [];
 let currentMaxCount = 1;
@@ -208,6 +211,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             State.mapBounds = window.myMap.getBounds(); 
             State.notify('init'); 
             
+            initClusterTooltip(window.myMap);
+            initPoliceStations(window.myMap);
+            initMapSearch(window.myMap);
+
             const loader = document.getElementById('global-loader');
             if (loader) {
                 loader.style.opacity = '0';

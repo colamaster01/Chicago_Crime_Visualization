@@ -204,6 +204,43 @@ export const MapRenderer = {
             if (this.hoveredAreaId !== areaId) {
                 this.hoveredAreaId = areaId;
                 const html = this.createMacroPopupHtml(props);
+                
+                if (this.popup) this.popup.remove();
+
+                const mapWidth = this.map.getCanvas().clientWidth;
+                const mapHeight = this.map.getCanvas().clientHeight;
+                
+                const nx = (e.point.x - mapWidth / 2) / mapWidth;
+                const ny = (e.point.y - mapHeight / 2) / mapHeight;
+
+                let anchorType, offsetVal;
+                
+                if (Math.abs(nx) > Math.abs(ny)) {
+                    if (nx > 0) {
+                        anchorType = 'right'; 
+                        offsetVal = [-10, 0];
+                    } else {
+                        anchorType = 'left';
+                        offsetVal = [10, 0];
+                    }
+                } else {
+                    if (ny > 0) {
+                        anchorType = 'bottom';
+                        offsetVal = [0, -10];
+                    } else {
+                        anchorType = 'top'; 
+                        offsetVal = [0, 10];
+                    }
+                }
+
+                this.popup = new maplibregl.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    anchor: anchorType, 
+                    offset: offsetVal,
+                    className: 'ghost-popup'
+                });
+
                 this.popup.setHTML(html);
             }
             
@@ -278,19 +315,59 @@ export const MapRenderer = {
         this.map.on('mousemove', 'unclustered-point', (e) => {
             const props = e.features[0].properties;
             const pointId = e.features[0].geometry.coordinates.join(',');
+            const lngLat = e.features[0].geometry.coordinates;
 
             if (this.hoveredAreaId !== pointId) {
                 this.hoveredAreaId = pointId;
+                
                 const html = `
-                    <div style="background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; max-width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <div style="background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                         <strong style="color:#ef4444; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">${props.type}</strong>
                         <div style="color:#e2e8f0; font-weight: 500; font-size: 12px; margin-bottom: 6px; line-height: 1.4;">${props.desc || 'No specific description'}</div>
                         <div style="border-top: 1px solid #1e293b; padding-top: 6px; color:#94a3b8; font-size: 11px;">${props.date}</div>
                     </div>
                 `;
+
+                if (this.popup) this.popup.remove();
+
+                const mapWidth = this.map.getCanvas().clientWidth;
+                const mapHeight = this.map.getCanvas().clientHeight;
+                
+                const nx = (e.point.x - mapWidth / 2) / mapWidth;
+                const ny = (e.point.y - mapHeight / 2) / mapHeight;
+
+                let anchorType, offsetVal;
+                
+                if (Math.abs(nx) > Math.abs(ny)) {
+                    if (nx > 0) {
+                        anchorType = 'right'; 
+                        offsetVal = [-10, 0];
+                    } else {
+                        anchorType = 'left';
+                        offsetVal = [10, 0];
+                    }
+                } else {
+                    if (ny > 0) {
+                        anchorType = 'bottom';
+                        offsetVal = [0, -10];
+                    } else {
+                        anchorType = 'top'; 
+                        offsetVal = [0, 10];
+                    }
+                }
+
+                this.popup = new maplibregl.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    anchor: anchorType, 
+                    offset: offsetVal,
+                    className: 'ghost-popup'
+                });
+
                 this.popup.setHTML(html);
             }
-            this.popup.setLngLat(e.features[0].geometry.coordinates);
+            
+            this.popup.setLngLat(lngLat);
             if (!this.popup.isOpen()) this.popup.addTo(this.map);
         });
     },
