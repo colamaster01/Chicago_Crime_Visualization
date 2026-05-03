@@ -44,7 +44,7 @@ export const UI = {
                 
                 seg.addEventListener('wheel', (e) => {
                     e.preventDefault(); 
-                    const delta = e.deltaY < 0 ? 0.05 : -0.05; 
+                    const delta = e.deltaY < 0 ? 0.01 : -0.01; 
                     State.updateSingleWeight(type, delta);
                 });
 

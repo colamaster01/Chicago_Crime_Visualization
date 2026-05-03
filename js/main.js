@@ -13,9 +13,6 @@ function renderSubItems(subTypeCounts) {
     const subList = document.getElementById('other-sub-list');
     if (!subList) return;
     
-    const otherMain = document.getElementById('other-checkbox-main');
-    const otherChecked = otherMain ? otherMain.checked : true;
-    
     // 👑 动态读取 OTHER 的当前颜色
     const otherColor = State.typeColors['OTHER'] || '#7f7f7f';
     
@@ -26,12 +23,11 @@ function renderSubItems(subTypeCounts) {
     
     subData.forEach(d => {
         const pct = currentMaxCount > 0 ? (d.count / currentMaxCount) * 100 : 0;
-        // 子项具备可拖拽属性：draggable="true" data-type="${d.type}"
+        // 👑 移除了 checkbox 元素，调整了布局间距
         html += `
             <div class="sub-legend-item">
-                <div class="legend-item-left">
-                    <input type="checkbox" disabled ${otherChecked ? 'checked' : ''} style="margin-right: 8px;">
-                    <div class="legend-color sub-legend-color" draggable="true" data-type="${d.type}" style="background:${otherColor}; width:8px; height:8px; margin-right: 8px; box-shadow:none; cursor:grab;"></div>
+                <div class="legend-item-left" style="padding-left: 22px;"> 
+                    <div class="legend-color sub-legend-color" draggable="true" data-type="${d.type}" style="background:${otherColor}; width:8px; height:8px; margin-right: 12px; box-shadow:none; cursor:grab;"></div>
                     <span style="font-size:9px; color:#94a3b8; word-break: break-word;">${d.type}</span>
                 </div>
                 <div class="legend-count-wrap">
@@ -66,7 +62,7 @@ function layoutD3(widthScale) {
        .style('transform', d => `translateY(${yOffsets[d.type]}px)`);
 
     if(cachedWidthScale) {
-        // 👑 颜色同步更新！
+        // 颜色同步更新！
         sel.select('.legend-color').style('background-color', d => State.typeColors[d.type] || '#ffffff');
         sel.select('.legend-count-fill')
            .style('background-color', d => State.typeColors[d.type] || '#ffffff')
@@ -85,11 +81,11 @@ function layoutD3(widthScale) {
     }
 }
 
-// 👑 当大类增减时，我们需要同步刷新 HTML 骨架（如果没有该大类的容器，就创建一个！）
+// 当大类增减时，我们需要同步刷新 HTML 骨架
 function ensureHTMLRowsExist(typeCounts) {
     const container = document.getElementById('checkbox-list-container');
     const existingRows = Array.from(container.querySelectorAll('.legend-row[data-type]')).map(r => r.dataset.type);
-    const neededTypes = State.explicitTypes.concat(['OTHER']); // 所有显性大类 + OTHER
+    const neededTypes = State.explicitTypes.concat(['OTHER']); 
     
     let domChanged = false;
 
@@ -99,7 +95,7 @@ function ensureHTMLRowsExist(typeCounts) {
             const row = document.createElement('div');
             row.className = 'legend-row';
             row.dataset.type = type;
-            row.style.position = 'absolute'; // 兼容 D3
+            row.style.position = 'absolute'; 
             row.style.left = '0'; row.style.right = '0'; row.style.margin = '0';
             
             const color = State.typeColors[type] || '#ffffff';
@@ -133,7 +129,6 @@ function ensureHTMLRowsExist(typeCounts) {
 function updateCrimeCountsD3(typeCounts, subTypeCounts) {
     if (!typeCounts) return;
 
-    // 先检查 DOM 是否完整
     ensureHTMLRowsExist(typeCounts);
 
     currentData = [];
@@ -144,7 +139,7 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
         currentData.push({ type, count, row });
     });
 
-    // 👑 强制 OTHER 永远垫底！
+    // 强制 OTHER 永远垫底
     currentData.sort((a, b) => {
         if (a.type === 'OTHER') return 1;
         if (b.type === 'OTHER') return -1;
@@ -167,6 +162,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.addEventListener('click', e => {
         if (e.target.closest('#other-toggle')) {
+            // 👑 修复：阻断点击事件冒泡，防止触发 label 的 checkbox 状态翻转
+            e.preventDefault(); 
+            e.stopPropagation();
+
             const subList = document.getElementById('other-sub-list');
             const toggleIcon = document.getElementById('other-toggle-icon');
             if (subList.style.display === 'none') {
