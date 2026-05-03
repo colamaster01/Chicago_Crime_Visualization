@@ -31,7 +31,6 @@ export const UI = {
                 const seg = document.createElement('div');
                 seg.className = 'weight-segment';
                 
-                // 👑 赋予其可拖拽能力
                 seg.draggable = true;
                 seg.setAttribute('data-type', type);
                 
@@ -40,7 +39,7 @@ export const UI = {
                 seg.style.flex = weights[type]; 
                 
                 const pct = (weights[type] * 100).toFixed(1);
-                seg.title = `${type}: ${pct}% (Scroll to adjust weight, Drag out to remove)`;
+                seg.title = `${type}: ${pct}%`;
                 
                 seg.addEventListener('wheel', (e) => {
                     e.preventDefault(); 
@@ -48,11 +47,10 @@ export const UI = {
                     State.updateSingleWeight(type, delta);
                 });
 
-                // 👑 拖拽移出事件
                 seg.addEventListener('dragstart', (e) => {
                     e.dataTransfer.setData('text/plain', type);
-                    e.dataTransfer.setData('source', 'weight-bar'); // 标记来源
-                    document.body.classList.add('drag-active-remove'); // 触发删除警示特效
+                    e.dataTransfer.setData('source', 'weight-bar'); 
+                    document.body.classList.add('drag-active-remove'); 
                 });
                 
                 seg.addEventListener('dragend', () => {
@@ -65,7 +63,6 @@ export const UI = {
     },
 
     bindGlobalInteractions() {
-        // --- 1. 处理 Checkbox 勾选 ---
         document.getElementById('checkbox-list-container').addEventListener('change', (e) => {
             if (e.target.id === 'select-all-checkbox') {
                 const isChecked = e.target.checked;
@@ -81,7 +78,6 @@ export const UI = {
             }
         });
 
-        // --- 2. 处理颜色选择器 ---
         const colorInput = document.createElement('input');
         colorInput.type = 'color';
         colorInput.style.position = 'absolute';
@@ -112,7 +108,6 @@ export const UI = {
             }
         });
 
-        // --- 3. 拖拽核心系统 (Drag & Drop) ---
         const container = document.getElementById('checkbox-list-container');
         const weightBar = document.getElementById('weight-bar');
         
@@ -140,7 +135,6 @@ export const UI = {
             }
         });
 
-        // 自动滚动逻辑
         container.addEventListener('dragover', (e) => {
             e.preventDefault();
             
@@ -172,7 +166,6 @@ export const UI = {
             if(weightBar) weightBar.classList.remove('drag-over');
         });
 
-        // 全局释放监听 (document.body)
         document.body.addEventListener('dragover', (e) => { e.preventDefault(); });
 
         document.body.addEventListener('drop', (e) => {
@@ -186,9 +179,7 @@ export const UI = {
 
             const source = e.dataTransfer.getData('source');
             
-            // 👑 处理从加权条拖出（取消勾选删除）
             if (source === 'weight-bar') {
-                // 只要释放点不是在加权条内部，就视为丢弃
                 if (!e.target.closest('#weight-bar')) {
                     const cb = document.querySelector(`.crime-checkbox[value="${type}"]`);
                     if (cb && cb.checked) {

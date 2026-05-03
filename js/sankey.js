@@ -1,4 +1,4 @@
-import { API } from './api.js';
+import { DataEngine } from './data_engine.js';
 import { State } from './state.js';
 
 export const SankeyPanel = {
@@ -55,14 +55,13 @@ export const SankeyPanel = {
         document.getElementById('sankey-svg').style.display = 'none';
         document.getElementById('sankey-loading').textContent = 'Loading...';
 
-        const rawApiData = await API.fetchSankey(this.currentAreaId, filters);
+        const rawApiData = await DataEngine.generateSankeyFlow(this.currentAreaId, filters);
         
         if (!rawApiData || rawApiData.links.length === 0) {
             document.getElementById('sankey-loading').textContent = 'No data available in current selection.';
             return;
         }
 
-        // 👑 核心逻辑：拦截 API 原始数据，将所有的“非 explicit 大类”全部归并聚类（Cluster）成一个 OTHER
         const clusteredData = this._clusterOtherTypes(rawApiData);
 
         this.rawData = JSON.parse(JSON.stringify(clusteredData));
@@ -78,24 +77,20 @@ export const SankeyPanel = {
         this._render();
     },
 
-    // 👑 新增：数据清洗与聚类函数
     _clusterOtherTypes(apiData) {
         const explicitTypes = State.explicitTypes;
         const timeSlots = ['Late Night', 'Morning', 'Afternoon', 'Night'];
         
         const mergedLinks = new Map();
 
-        // 遍历所有 API 给的流向线
         apiData.links.forEach(link => {
             const sourceName = apiData.nodes[link.source].name;
             const targetName = apiData.nodes[link.target].name;
 
-            // 如果源节点是一个案件（而不是时间段），并且它既不是显性大类，也不是时间段本身 -> 那它就是 OTHER
             const effectiveSourceName = (explicitTypes.includes(sourceName) || timeSlots.includes(sourceName)) 
                                         ? sourceName 
                                         : 'OTHER';
             
-            // 构建归并后的唯一 Key
             const key = `${effectiveSourceName}|${targetName}`;
             
             if (mergedLinks.has(key)) {
@@ -105,7 +100,6 @@ export const SankeyPanel = {
             }
         });
 
-        // 重建标准的 D3 nodes 和 links 结构
         const newNodes = [];
         const newLinks = [];
         const nodeIndexMap = {};
@@ -188,14 +182,13 @@ export const SankeyPanel = {
             .nodeWidth(14)
             .nodePadding(10)
             .nodeSort((a, b) => {
-                // 确保 OTHER 永远排在案件类型的最下面
                 if (a.name === 'OTHER' && !['Late Night', 'Morning', 'Afternoon', 'Night'].includes(b.name)) return 1;
                 if (b.name === 'OTHER' && !['Late Night', 'Morning', 'Afternoon', 'Night'].includes(a.name)) return -1;
 
                 const ORDER = ['Late Night', 'Morning', 'Afternoon', 'Night'];
                 const ai = ORDER.indexOf(a.name), bi = ORDER.indexOf(b.name);
                 if (ai === -1 && bi === -1) return 0;
-                if (ai === -1) return -1; // 案件排左边
+                if (ai === -1) return -1; 
                 if (bi === -1) return 1;
                 return ai - bi;
             })
@@ -209,7 +202,6 @@ export const SankeyPanel = {
             if (TIME_COLORS[node.name]) {
                 node.color = TIME_COLORS[node.name];
             } else if (State.typeColors[node.name]) {
-                // 👑 动态同步 State 中的自定义颜色
                 node.color = State.typeColors[node.name];
             } else if (node.name === 'OTHER') {
                 node.color = State.typeColors['OTHER'] || '#7f7f7f';

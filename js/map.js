@@ -42,7 +42,6 @@ class HomeButtonControl {
     }
 }
 
-
 export const MapRenderer = {
     map: null, popup: null, isLoaded: false, 
     deckOverlay: null,      
@@ -164,11 +163,11 @@ export const MapRenderer = {
                     ${props.community || 'Unknown'}
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; background: rgba(59, 130, 246, 0.1); padding: 4px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                    <span style="color: #93c5fd; font-size: 11px; font-weight: bold;">Severity Index</span>
+                    <span style="color: #93c5fd; font-size: 11px; font-weight: bold;">Severity Score</span>
                     <span style="color: #60a5fa; font-weight: 900; font-size: 14px;">${score}<span style="font-size:9px; color:#64748b;">/100</span></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 6px; color: #94a3b8; font-size: 10px;">
-                    <span>Raw Cases</span>
+                    <span>Case number</span>
                     <span style="color: #cbd5e1; font-weight: bold;">${total.toLocaleString()}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #94a3b8; font-size: 10px;">
@@ -286,7 +285,7 @@ export const MapRenderer = {
                     <div style="background: rgba(15, 23, 42, 0.95); color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; max-width: 220px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                         <strong style="color:#ef4444; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">${props.type}</strong>
                         <div style="color:#e2e8f0; font-weight: 500; font-size: 12px; margin-bottom: 6px; line-height: 1.4;">${props.desc || 'No specific description'}</div>
-                        <div style="border-top: 1px solid #1e293b; padding-top: 6px; color:#94a3b8; font-size: 11px;">🕒 ${props.date}</div>
+                        <div style="border-top: 1px solid #1e293b; padding-top: 6px; color:#94a3b8; font-size: 11px;">${props.date}</div>
                     </div>
                 `;
                 this.popup.setHTML(html);
@@ -356,7 +355,6 @@ export const MapRenderer = {
             };
         });
 
-        // 这个变量不仅控制高度是否显示，也决定了是否要把柱状图绘制出来
         const shouldShowColumns = this.is3DActive && this.isMacroVisible;
 
         const extrusionLayer = new deck.PolygonLayer({
@@ -365,7 +363,6 @@ export const MapRenderer = {
             extruded: true,
             stroked: false,      
             
-            // 👑 核心修复：只有处于 3D 模式下，这个隐藏的圆盘才能被鼠标触碰（pickable）！
             pickable: shouldShowColumns,         
             autoHighlight: true,    
             highlightColor: [255, 255, 255, 60], 
@@ -403,7 +400,6 @@ export const MapRenderer = {
                 }
             },
 
-            // 必须把 shouldShowColumns 加入触发更新的依赖中
             updateTriggers: {
                 getElevation: [this.is3DActive, this.isMacroVisible, isEmpty],
                 getFillColor: [this.is3DActive, this.isMacroVisible, isEmpty],

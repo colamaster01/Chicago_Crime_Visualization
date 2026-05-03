@@ -1,7 +1,7 @@
 import { MapRenderer } from './map.js';
 import { UI } from './ui.js';
 import { State } from './state.js';
-import { API } from './api.js';
+import { DataEngine } from './data_engine.js';
 import { ChartRenderer } from './chart.js'; 
 import { SankeyPanel } from './sankey.js';
 
@@ -13,9 +13,7 @@ function renderSubItems(subTypeCounts) {
     const subList = document.getElementById('other-sub-list');
     if (!subList) return;
     
-    // 👑 动态读取 OTHER 的当前颜色
     const otherColor = State.typeColors['OTHER'] || '#7f7f7f';
-    
     let html = '';
     const subData = Object.entries(subTypeCounts)
         .map(([type, count]) => ({type, count}))
@@ -23,7 +21,6 @@ function renderSubItems(subTypeCounts) {
     
     subData.forEach(d => {
         const pct = currentMaxCount > 0 ? (d.count / currentMaxCount) * 100 : 0;
-        // 👑 移除了 checkbox 元素，调整了布局间距
         html += `
             <div class="sub-legend-item">
                 <div class="legend-item-left" style="padding-left: 22px;"> 
@@ -57,12 +54,10 @@ function layoutD3(widthScale) {
         .selectAll('.legend-row[data-type]')
         .data(currentData, function(d) { return d ? d.type : this.getAttribute('data-type'); });
 
-    // D3 洗牌位移动画
     sel.transition().duration(800).ease(d3.easeCubicOut)
        .style('transform', d => `translateY(${yOffsets[d.type]}px)`);
 
     if(cachedWidthScale) {
-        // 颜色同步更新！
         sel.select('.legend-color').style('background-color', d => State.typeColors[d.type] || '#ffffff');
         sel.select('.legend-count-fill')
            .style('background-color', d => State.typeColors[d.type] || '#ffffff')
@@ -81,7 +76,6 @@ function layoutD3(widthScale) {
     }
 }
 
-// 当大类增减时，我们需要同步刷新 HTML 骨架
 function ensureHTMLRowsExist(typeCounts) {
     const container = document.getElementById('checkbox-list-container');
     const existingRows = Array.from(container.querySelectorAll('.legend-row[data-type]')).map(r => r.dataset.type);
@@ -89,7 +83,6 @@ function ensureHTMLRowsExist(typeCounts) {
     
     let domChanged = false;
 
-    // 添加新的大类行
     neededTypes.forEach(type => {
         if (!existingRows.includes(type) && type !== 'OTHER') {
             const row = document.createElement('div');
@@ -105,14 +98,12 @@ function ensureHTMLRowsExist(typeCounts) {
                   <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:${color};"></div></div><span class="legend-count-num">—</span></div>
                 </label>
             `;
-            // 插入在 OTHER 之前
             const otherRow = document.getElementById('other-row');
             container.insertBefore(row, otherRow);
             domChanged = true;
         }
     });
 
-    // 移除不再是大类的行
     existingRows.forEach(type => {
         if (!neededTypes.includes(type) && type !== 'OTHER') {
             const row = container.querySelector(`.legend-row[data-type="${type}"]`);
@@ -139,7 +130,6 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
         currentData.push({ type, count, row });
     });
 
-    // 强制 OTHER 永远垫底
     currentData.sort((a, b) => {
         if (a.type === 'OTHER') return 1;
         if (b.type === 'OTHER') return -1;
@@ -158,11 +148,8 @@ function updateCrimeCountsD3(typeCounts, subTypeCounts) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => { 
-    console.log("Main activating");
-    
     document.addEventListener('click', e => {
         if (e.target.closest('#other-toggle')) {
-            // 👑 修复：阻断点击事件冒泡，防止触发 label 的 checkbox 状态翻转
             e.preventDefault(); 
             e.stopPropagation();
 
@@ -182,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loaderText = document.getElementById('loader-text');
     
     try {
-        await API.init(); 
+        await DataEngine.init(); 
         if(loaderText) loaderText.innerText = "Rendering map and charts...";
         UI.init();
 
@@ -191,13 +178,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const currentZoom = window.myMap ? window.myMap.getZoom() : 0;
 
                 if (source === 'bounds') {
-                    const microData = await API.fetchCrimes(filters, bounds, currentZoom);
+                    const microData = await DataEngine.queryMicroData(filters, bounds, currentZoom);
                     MapRenderer.updateMicroData(microData);
                 } else {
                     const [microData, macroData, histData] = await Promise.all([
-                        API.fetchCrimes(filters, bounds, currentZoom),
-                        API.fetchMacroLayer(filters),
-                        API.fetchHistograms(filters) 
+                        DataEngine.queryMicroData(filters, bounds, currentZoom),
+                        DataEngine.computeMacroLayer(filters),
+                        DataEngine.aggregateChartData(filters) 
                     ]);
                     
                     MapRenderer.updateMicroData(microData);
@@ -227,8 +214,5 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setTimeout(() => loader.remove(), 500);
             }
         });
-    } catch (error) {
-        if(loaderText) loaderText.innerText = "Error loading data. Please refresh.";
-        console.error(error);
-    }
+    } catch (error) {}
 });

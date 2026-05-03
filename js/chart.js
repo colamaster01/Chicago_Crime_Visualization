@@ -3,7 +3,6 @@ import { State } from './state.js';
 const formatters = {
     year: v => Math.round(v),
     month: v => {
-        // 👑 自动解析连续的小数值为具体的月份和天数
         let mIdx = Math.floor(v);
         if (mIdx > 12) { mIdx = 12; v = 12.999; }
         if (mIdx < 1) mIdx = 1;
@@ -29,7 +28,6 @@ export const ChartRenderer = {
         const node = container.node();
         if (!node) return;
 
-        // 统一拓展域区间，为所有的长条流出尾部空间（如 year 的 2027）
         const domainMax = (filterKey === 'time') ? maxKey : maxKey + step;
         const domainArr = d3.range(minKey, domainMax, step);
         const data = domainArr.map(k => ({ key: k, value: dataMap.get(k) || 0 }));
@@ -68,12 +66,11 @@ export const ChartRenderer = {
                 xAxis.tickValues(d3.range(0, 25, 3)).tickFormat(d => `${d}:00`);
             } else if (filterKey === 'month') {
                 xAxis.tickValues(d3.range(1, 14, 1)).tickFormat(d => {
-                    if (d === 13) return ""; // 月份最右刻度隐藏
+                    if (d === 13) return ""; 
                     const m = ["", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
                     return m[d] || "";
                 });
             } else {
-                // 👑 修复：将 Year 的刻度直接画到 domainMax (2027) 处
                 xAxis.tickValues(d3.range(minKey, domainMax + 1, 1)).tickFormat(d3.format("d"));
             }
 
@@ -85,7 +82,6 @@ export const ChartRenderer = {
 
             const brush = d3.brushX()
                 .extent([[0, 0], [width, height]]) 
-                // 改为 function(event) 便于 d3.select(this) 接管动画
                 .on('brush end', function(event) {
                     if (!event.sourceEvent) return;
 
@@ -96,14 +92,12 @@ export const ChartRenderer = {
                     } else {
                         let [x0, x1] = event.selection.map(x.invert);
                         
-                        // 👑 修复：针对年份加入物理 Snap (吸附)，释放时滑块永远停在整数边界！
                         if (filterKey === 'year') {
                             x0 = Math.round(x0);
                             x1 = Math.round(x1);
                             if (x0 === x1) x1 = x0 + 1; 
                             if (x1 > domainMax) x1 = domainMax;
                             
-                            // 只有在鼠标松开时才执行 UI 对齐动画
                             if (event.type === 'end') {
                                 d3.select(this).transition().call(brush.move, [x(x0), x(x1)]);
                             }
@@ -114,16 +108,15 @@ export const ChartRenderer = {
                         selectedRange = [x0, x1];
                     }
 
-                    // 👑 修复：展示完美格式化的标签文本
                     let labelText = `${formatters[filterKey](selectedRange[0])} - ${formatters[filterKey](selectedRange[1])}`;
                     
                     if (filterKey === 'year') {
                         const startY = Math.round(selectedRange[0]);
-                        const endY = Math.round(selectedRange[1]) - 1; // 2027 边界退回表示 2026
+                        const endY = Math.round(selectedRange[1]) - 1; 
                         labelText = startY === endY ? `${startY}` : `${startY} - ${endY}`;
                     } else if (filterKey === 'month') {
                         if (selectedRange[0] <= 1 && selectedRange[1] >= 13) {
-                            labelText = "JAN 01 - DEC 31"; // 全部涵盖的友好显示
+                            labelText = "JAN 01 - DEC 31"; 
                         }
                     }
 

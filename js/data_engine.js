@@ -1,13 +1,12 @@
 import { State } from './state.js';
 
-export const API = {
+export const DataEngine = {
     allData: [],
     mappings: {},
     isLoaded: false,
     cf: null, dims: {}, groups: {},
 
     async init() {
-        console.log("⏳ 启动流式引擎...");
         try {
             const jsonRes = await fetch('crime_mapping.json');
             this.mappings = await jsonRes.json();
@@ -61,15 +60,13 @@ export const API = {
                     error: (err) => reject(err)
                 });
             });
-        } catch (e) { console.error("❌ 初始化错误", e); }
+        } catch (e) {}
     },
 
-    getAllowedTypeIds(crimeTypesStrArray) {
+    resolveCrimeTypeIds(crimeTypesStrArray) {
         const allowed = new Set();
         if (!crimeTypesStrArray || crimeTypesStrArray.length === 0) return allowed;
         const hasOther = crimeTypesStrArray.includes('OTHER');
-        
-        // 👑 动态读取当前哪些是大类
         const explicitTypes = State.explicitTypes; 
 
         for (const [idStr, name] of Object.entries(this.mappings.types)) {
@@ -81,7 +78,7 @@ export const API = {
     },
 
     updateCrossfilterState(filters) {
-        const allowedTypes = this.getAllowedTypeIds(filters.crimeTypes);
+        const allowedTypes = this.resolveCrimeTypeIds(filters.crimeTypes);
         
         if (allowedTypes.size === 0) this.dims.type.filter(-1); 
         else this.dims.type.filterFunction(t => allowedTypes.has(t));
@@ -96,7 +93,7 @@ export const API = {
         else this.dims.time.filterAll();
     },
 
-    async fetchCrimes(filters, bounds, currentZoom = 20) {
+    async queryMicroData(filters, bounds, currentZoom = 20) {
         if (!this.isLoaded || !bounds || filters.crimeTypes.length === 0) return { type: "FeatureCollection", features: [] };
         if (currentZoom < 12.5) return { type: "FeatureCollection", features: [] };
 
@@ -105,7 +102,6 @@ export const API = {
         const features = [];
         const [south, north, west, east] = [bounds.getSouth(), bounds.getNorth(), bounds.getWest(), bounds.getEast()];
 
-        // 读取动态颜色字典
         const typeColors = State.typeColors;
         const explicitTypes = State.explicitTypes;
 
@@ -114,7 +110,6 @@ export const API = {
             if (d.lat < south || d.lat > north || d.lng < west || d.lng > east) continue;
             
             const rawType = this.mappings.types[d.t] || 'UNKNOWN';
-            // 👑 动态赋色：如果在 explicit 里，用它的颜色；如果是 OTHER 里的小弟，统一用 OTHER 的颜色（灰色）
             const renderColor = explicitTypes.includes(rawType) ? (typeColors[rawType] || '#ffffff') : (typeColors['OTHER'] || '#7f7f7f');
 
             features.push({
@@ -124,14 +119,14 @@ export const API = {
                     type: rawType,
                     desc: this.mappings.descriptions[d.desc] || '',
                     date: `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')} ${String(d.h).padStart(2,'0')}:${String(d.min).padStart(2,'0')}`,
-                    color: renderColor // 将颜色直接打包进数据发给地图
+                    color: renderColor 
                 }
             });
         }
         return { type: "FeatureCollection", features };
     },
 
-    async fetchMacroLayer(filters) {
+    async computeMacroLayer(filters) {
         if (!this.isLoaded) return null;
         if (!window.cachedCommunityGeoJson) {
             const geoRes = await fetch('https://data.cityofchicago.org/resource/igwz-8jzy.geojson');
@@ -163,7 +158,6 @@ export const API = {
         const caStats = {};
         let maxSeverity = 0; 
         
-        // 👑 动态读取大类
         const explicitTypes = State.explicitTypes;
     
         groupedData.forEach(g => {
@@ -217,7 +211,7 @@ export const API = {
         return { geoJson, thresholds: { p20, p40, p60, p80 }, isEmpty: scoreArray.length === 0 };
     },
 
-    async fetchHistograms(filters) {
+    async aggregateChartData(filters) {
         if (!this.isLoaded) return { year: new Map(), month: new Map(), time: new Map(), typeCounts: {}, subTypeCounts: {} };
         
         this.updateCrossfilterState(filters);
@@ -231,7 +225,6 @@ export const API = {
         const typeCounts = {};
         const subTypeCounts = {}; 
         
-        // 👑 动态读取大类
         const explicitTypes = State.explicitTypes;
         
         this.groups.type.all().forEach(({ key, value }) => {
@@ -259,7 +252,7 @@ export const API = {
         };
     },
 
-    async fetchSankey(areaId, filters) {
+    async generateSankeyFlow(areaId, filters) {
         if (!this.isLoaded) return null;
         this.updateCrossfilterState(filters);
         this.dims.ca.filterExact(areaId);
@@ -271,7 +264,7 @@ export const API = {
         );
     
         const raw = typeTimeGroup.all();
-        const allowedTypesSet = this.getAllowedTypeIds(filters.crimeTypes);
+        const allowedTypesSet = this.resolveCrimeTypeIds(filters.crimeTypes);
         const hasTypesFilter = allowedTypesSet.size > 0;
         const nodes = [], links = [], nodeIndex = {};
     

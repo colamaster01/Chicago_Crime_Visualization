@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Chicago Crime Dashboard</title>
+  <title>Chicago Crime Visualization</title>
   <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css' />
   <script src='https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js'></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -21,21 +21,20 @@
           <div id="loader-progress" class="progress-bar-fill"></div>
         </div>
       </div>
-      <h2 style="margin: 15px 0 5px 0; color: #fff;">System Initializing</h2>
+      <h2 style="margin: 15px 0 5px 0; color: #fff;">Website Initializing</h2>
       <p id="loader-text" style="color: #94a3b8; font-size: 14px; margin: 0;">Connecting to data stream...</p>
     </div>
   </div>
 
   <div class="top-title-bar">
-    Chicago <span style="color: #60a5fa;"> CRIME </span> Dashboard
-    <span class="topbar-live" style="margin-left: auto;">LIVE DATA</span>
+    Chicago <span style="color: #60a5fa;"> CRIME </span> Visualization
   </div>
 
   <div class="dashboard-layout">
     <div class="left-panel">
       <div id="map">
         <div id="severity-legend" class="map-legend">
-          <h4>Severity Index</h4>
+          <h4>Severity</h4>
           <div class="legend-scale">
             <div class="legend-item"><span style="background: #d73027;"></span> Very Dangerous</div>
             <div class="legend-item"><span style="background: #fc8d59;"></span> Dangerous</div>
@@ -65,17 +64,16 @@
     </div>
 
     <div class="right-panel">
-      <div class="panel-title">Crime Types & Filters</div>
+      <div class="panel-title">Crime Types</div>
       
       <div class="weight-bar-container">
         <div class="weight-bar-header">
-          <div class="weight-bar-label">Severity Weight Distribution</div>
+          <div class="weight-bar-label">Crime Severity Weights</div>
           <button id="reset-weights-btn" class="reset-btn" title="Reset weights equally">↺ RESET</button>
         </div>
         <div id="weight-bar" class="weight-bar" title="Drag a color dot here, or scroll on a color to adjust weight"></div>
       </div>
 
-      <!-- 👑 修改为 legend-row 包裹结构，允许高自由度的展开操作 -->
       <div class="checkbox-list" id="checkbox-list-container" style="height: 485px;">
         <label id="select-all-label" class="merged-legend-item" style="font-weight: bold; color: #f8fafc;">
           <input type="checkbox" id="select-all-checkbox" checked> Select All
@@ -144,11 +142,9 @@
             </label>
         </div>
       
-        <!-- 👑 核心改造：给 OTHER 加上了专属的折叠箭头和装载子菜单的容器 -->
         <div class="legend-row" data-type="OTHER" id="other-row">
             <label class="merged-legend-item">
               <div class="legend-item-left">
-                  <!-- 交互箭头 -->
                   <div id="other-toggle" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:16px; height:16px; margin-right:4px;">
                       <svg id="other-toggle-icon" viewBox="0 0 24 24" stroke="var(--text-tertiary)" stroke-width="3" fill="none" style="width:10px; height:10px; transition:0.3s; pointer-events:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
                   </div>
@@ -158,7 +154,6 @@
               </div>
               <div class="legend-count-wrap"><div class="legend-count-bar"><div class="legend-count-fill" style="background:#7f7f7f;"></div></div><span class="legend-count-num">—</span></div>
             </label>
-            <!-- 子菜单容器 -->
             <div id="other-sub-list" style="display:none; flex-direction:column; background:rgba(0,0,0,0.15); border-top:1px solid rgba(30,58,95,0.4); padding-bottom:6px;">
             </div>
         </div>

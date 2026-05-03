@@ -1,7 +1,3 @@
-/* ============================================================
-   DASHBOARD STYLES — 玻璃质感 / 蓝色发光 / 纯净版
-   ============================================================ */
-
 :root {
   --bg-void:        #060d18;
   --bg-base:        #080f1c;
@@ -44,7 +40,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---------- 加载动画 ---------- */
 #global-loader { position: fixed; inset: 0; background: var(--bg-void); z-index: 99999; display: flex; justify-content: center; align-items: center; transition: opacity 0.7s ease-out; }
 .loader-content { text-align: center; font-family: var(--font-ui); width: 300px; }
 .progress-wrapper { width: 100%; }
@@ -53,7 +48,6 @@ body {
 .progress-bar-fill::after { content: ''; position: absolute; top: 0; right: 0; width: 40px; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: sweep 1.2s ease-in-out infinite; }
 @keyframes sweep { 0% { transform: translateX(-40px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateX(40px); opacity: 0; } }
 
-/* ---------- 顶部发光栏 ---------- */
 .top-title-bar {
   height: 40px; background: var(--bg-void); color: var(--text-bright); font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; display: flex; align-items: center; padding: 0 20px; position: relative;
 }
@@ -65,7 +59,6 @@ body {
 .topbar-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green), 0 0 12px rgba(16,185,129,0.4); animation: live-pulse 2s ease-in-out infinite; }
 @keyframes live-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--green), 0 0 12px rgba(16,185,129,0.4); } 50% { opacity: 0.5; box-shadow: 0 0 3px var(--green); } }
 
-/* ---------- 核心布局 ---------- */
 .dashboard-layout { display: flex; width: 100vw; height: calc(100vh - 40px); }
 .left-panel { width: 75%; display: flex; flex-direction: column; position: relative; } 
 #map { width: 100%; height: 80%; position: relative; border-right: 1px solid var(--border-subtle); background: var(--bg-base); }
@@ -79,7 +72,6 @@ body {
 .filter-group label { display: flex; align-items: baseline; font-size: 10px; font-weight: 700; margin-bottom: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1px; }
 .highlight-text { color: var(--accent-bright); font-weight: 600; font-size: 12px; margin-left: 8px; }
 
-/* ---------- 右侧玻璃面板 ---------- */
 .right-panel {
   width: 25%; height: 100%; background: var(--bg-glass);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -96,9 +88,6 @@ body {
 .panel-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-pale); margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border-glow); position: relative; }
 .panel-title::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 40%; height: 1px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 
-/* ==========================================================
-   👑 D3 排版系统核心与子菜单扩展
-   ========================================================== */
 .checkbox-list { 
   position: relative;
   border: 1px solid var(--border-glow); 
@@ -139,11 +128,10 @@ body {
 }
 .merged-legend-item:hover { background: var(--bg-glass-light); border-left-color: var(--accent); color: var(--text-bright); box-shadow: inset 0 0 12px rgba(60, 160, 235, 0.05); }
 
-/* 👑 OTHER 下拉子菜单样式：修复缩进 */
 .sub-legend-item {
   display: flex; align-items: center; justify-content: space-between;
   height: 34px; 
-  padding-left: 20px; /* 因为移除了 checkbox，重新调整左侧留白让颜色圈对齐 */
+  padding-left: 20px; 
   padding-right: 12px;
   border-bottom: 1px dashed rgba(30, 58, 95, 0.3);
 }
@@ -151,8 +139,6 @@ body {
 
 .legend-item-left { display: flex; align-items: center; flex-shrink: 0; width: 140px; }
 .legend-item-left span { flex: 1; white-space: normal; word-break: break-word; line-height: 1.1; text-transform: uppercase; font-size: 10px; font-weight: 700; color: var(--text-bright); }
-
-/* 下面保持不变... */
 
 .legend-count-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; justify-content: flex-end; }
 .legend-count-bar { flex: 1; height: 4px; background: var(--border-default); border-radius: 2px; overflow: hidden; min-width: 40px; }
@@ -167,7 +153,6 @@ body {
 .legend-color:hover { transform: scale(1.3); box-shadow: 0 0 6px currentColor; }
 .legend-color:active { cursor: grabbing; }
 
-/* ---------- 控制图表细节 ---------- */
 .chart-canvas { width: 100%; }
 .brush .overlay { pointer-events: all; }
 .brush .selection { fill: var(--accent); fill-opacity: 0.1; stroke: var(--accent-bright); stroke-width: 1px; }
@@ -177,7 +162,6 @@ body {
 .maplibregl-popup-content { background: none !important; box-shadow: none !important; padding: 0 !important; border: none !important; }
 .maplibregl-popup-tip { display: none !important; }
 
-/* ---------- 动态权重分布条 ---------- */
 .weight-bar-container { margin-bottom: 18px; }
 .weight-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
 .weight-bar-label { font-size: 10px; color: var(--text-tertiary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0; }
@@ -185,9 +169,6 @@ body {
 .reset-btn:hover { border-color: var(--accent); color: var(--accent-bright); background: var(--accent-dim); box-shadow: 0 0 8px rgba(60, 160, 235, 0.2); }
 .weight-bar { height: 12px; display: flex; width: 100%; border-radius: 6px; overflow: hidden; background: var(--bg-surface); border: 1px solid var(--border-default); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); transition: opacity 0.3s; }
 
-/* ==========================================================
-   👑 地图悬浮图例 (位移动画已完美同步)
-   ========================================================== */
 .map-legend {
   position: absolute; bottom: 22px; left: 16px; background: var(--bg-glass);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -209,11 +190,6 @@ body {
 .legend-item:hover { color: var(--text-white); }
 .legend-item span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 5px currentColor; }
 
-/* ==========================================================
-   👑 拖拽升维与降维、删除的发光提示特效 
-   ========================================================== */
-
-/* 让加权条上的色块呈现可抓取状态 */
 .weight-segment { 
   transition: flex 0.15s ease-out; 
   cursor: grab; 
@@ -221,7 +197,6 @@ body {
 }
 .weight-segment:active { cursor: grabbing; }
 
-/* 当拖拽子项脱离 OTHER 时，全局绿灯提示松手即升维 */
 body.drag-active-pull-out-global {
     box-shadow: inset 0 0 50px rgba(16, 185, 129, 0.4) !important;
     border: 2px dashed #10b981 !important;
@@ -231,23 +206,20 @@ body.drag-active-pull-out-global #checkbox-list-container {
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
 }
 
-/* 当从加权条拖出色块时，全局红灯提示松手即删除(取消选中) */
 body.drag-active-remove {
     box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.3) !important;
     border: 2px dashed #ef4444 !important;
 }
 body.drag-active-remove #weight-bar {
-    opacity: 0.5; /* 加权条变暗，暗示元素将被剥离 */
+    opacity: 0.5; 
 }
 
-/* 当拖拽大类时，OTHER项亮起红灯，暗示丢进来降维 */
 #other-row.drag-active-drop-in .merged-legend-item {
     background: rgba(239, 68, 68, 0.1) !important;
     border-left-color: #ef4444;
     box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.3) !important;
 }
 
-/* 权重条高亮 */
 #weight-bar.drag-over { 
     border-color: var(--accent); 
     box-shadow: 0 0 0 2px var(--accent-dim), inset 0 1px 4px rgba(0,0,0,0.3); 
